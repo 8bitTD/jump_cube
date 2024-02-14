@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 bevy = {version = "0.12.1", features = ["mp3", "wav"]}
+bevy_framepace = "0.14.1"
 rand = "0.8.5"

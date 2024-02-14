@@ -23,6 +23,19 @@ pub fn spawn_system(
     asset_server: Res<AssetServer>,
 ) {
     app.stage_count = 1;
+
+    commands.spawn((AudioBundle {
+        source: asset_server.load(common::BGMENDING),
+        settings: PlaybackSettings{
+            mode: bevy::audio::PlaybackMode::Loop,
+            volume: bevy::audio::Volume::Relative(bevy::audio::VolumeLevel::new(value::VOLUME)),
+            ..default()
+        },
+        ..default()
+        },
+        ReleaseResource
+    ));
+
     commands.spawn((Camera2dBundle::default(), ReleaseResource));
     let font = asset_server.load(common::DEFAULTFONT);
     let text_style = TextStyle {

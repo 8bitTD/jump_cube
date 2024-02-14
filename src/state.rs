@@ -12,6 +12,10 @@ pub struct Pos{
 #[derive(Resource)] 
 pub struct MyApp{
     pub is_ground: bool,
+    pub is_rising: bool,
+    pub is_jump: bool,
+    pub is_block_hit: bool,
+    pub side_hit_sound_interval: f32,
     pub is_reset_game: bool,
     pub stage_count: u32,
     pub jump_count: usize,
@@ -20,11 +24,16 @@ pub struct MyApp{
     pub player_pos: Pos,
     pub mouse_pos: Pos,
     pub is_ending_end: bool,
+    pub old_velocity_y: f32,
 }
 impl Default for MyApp{
     fn default() -> Self{   
         MyApp{
-            is_ground: true,
+            is_ground: false,
+            is_rising: true,
+            is_jump: true,
+            is_block_hit: false,
+            side_hit_sound_interval: 0.0,
             is_reset_game: false,
             stage_count: 1,
             jump_count: 0,
@@ -33,6 +42,7 @@ impl Default for MyApp{
             player_pos: Pos::default(),
             mouse_pos: Pos::default(),
             is_ending_end: false,
+            old_velocity_y: 0.0,
         }
     }
 }
@@ -60,30 +70,24 @@ impl Plugin for StatePlugin {
         .insert_resource(OneSecondTimer(Timer::from_seconds(1.0, TimerMode::Repeating)))
         .add_event::<game::JumpEvent>()
         .add_event::<game::LandingEvent>()
+        .add_event::<game::SideLandingEvent>()
         .add_systems(OnEnter(AppState::Game), game::setup_asset)
         .add_systems(Update, 
             (
                 game::update_player,
-                //game::update_debug,
+                game::update_debug,
                 game::update_fade_stage_text,
                 game::update_check_out_of_range,
                 game::update_goal_animation,
-            ).run_if(in_state(AppState::Game)),
-        )
-        .add_systems(PostUpdate,
-            (
+
                 game::update_check_for_collisions,
-                game::update_play_sound,
-            ).chain().run_if(in_state(AppState::Game)),
-        )
-        .add_systems( FixedUpdate,
-            (
                 game::update_apply_velocity,
+
+                game::update_play_sound,
                 game::update_reset_game,  
                 game::update_check_goal,
                 game::update_camera_move,
-            ).chain()
-            .run_if(in_state(AppState::Game))
+            ).chain().run_if(in_state(AppState::Game)),
         )
         .add_systems(OnExit(AppState::Game), despawn)
         

@@ -32,6 +32,9 @@ pub struct PlayerAvatar;
 #[derive(Debug, Component, Deref, DerefMut)]
 pub struct Velocity(Vec2);
 
+#[derive(Debug, Component, Deref, DerefMut)]
+pub struct Adjustment(Vec2);
+
 #[derive(Component)]
 pub struct StageText;
 
@@ -51,15 +54,21 @@ pub struct LandingEvent;
 #[derive(Resource)]
 pub struct LandingSound(Handle<AudioSource>);
 
+#[derive(Event, Default)]
+pub struct SideLandingEvent;
+#[derive(Resource)]
+pub struct SideLandingSound(Handle<AudioSource>);
+
 
 pub fn update_camera_move(
     mut app: ResMut<MyApp>, 
     mut camera_query: Query<(&Camera, &mut Transform, &GlobalTransform), With<CameraMarker>>,
     q_window: Query<&Window, With<PrimaryWindow>>,
+    time: Res<Time>,
 ) {
     let (camera, mut camera_transform, camera_global_transform) = camera_query.single_mut();
-    camera_transform.translation.x += (app.player_pos.x - camera_transform.translation.x) * 0.01;
-    camera_transform.translation.y += (app.player_pos.y - camera_transform.translation.y) * 0.01;
+    camera_transform.translation.x += (app.player_pos.x - camera_transform.translation.x) * 0.01 * (time.delta_seconds() / value::PER60FPS);
+    camera_transform.translation.y += (app.player_pos.y - camera_transform.translation.y) * 0.01 * (time.delta_seconds() / value::PER60FPS);
     if app.is_reset_game{
         camera_transform.translation.x = value::DEFAULTCAMERAPOSX;
         camera_transform.translation.y = value::DEFAULTCAMERAPOSY;
@@ -68,7 +77,7 @@ pub fn update_camera_move(
     if  window.cursor_position().is_none(){return;}
     let wcp = window.cursor_position().unwrap();
     let res = camera.viewport_to_world(camera_global_transform, wcp).map(|ray| ray.origin.truncate());
-    if res.is_none(){return;}
+    if res.is_none(){ return; }
     app.mouse_pos.x = res.unwrap().x;
     app.mouse_pos.y = res.unwrap().y;
 }
@@ -79,7 +88,9 @@ pub fn setup_asset(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
+    mut settings: ResMut<bevy_framepace::FramepaceSettings>,
 ) {
+    settings.limiter = bevy_framepace::Limiter::Off;
     if app.stage_count == 1{ *app = MyApp::default(); }
     commands.insert_resource(ClearColor(Color::rgb(0.15, 0.15, 0.15)));
 
@@ -91,15 +102,17 @@ pub fn setup_asset(
         source: asset_server.load(common::BGM),
         settings: PlaybackSettings{
             mode: bevy::audio::PlaybackMode::Loop,
-            volume: bevy::audio::Volume::Relative(bevy::audio::VolumeLevel::new(0.05)),
+            volume: bevy::audio::Volume::Relative(bevy::audio::VolumeLevel::new(value::VOLUME)),
             ..default()
         },
         ..default()
         },
         ReleaseResource
     ));
+
     commands.insert_resource(JumpSound(asset_server.load(common::SOUNDJUMP)));
     commands.insert_resource(LandingSound(asset_server.load(common::SOUNDLANDING)));
+    commands.insert_resource(SideLandingSound(asset_server.load(common::SOUNDSIDELANDING)));
 
     let font = asset_server.load(common::DEFAULTFONT);
     let text = match app.stage_count == value::MAXSTAGE{
@@ -157,7 +170,8 @@ pub fn setup_asset(
         },
         PlayerBlock,
         ReleaseResource,
-        Velocity(Vec2::new(0.0, 0.0)),
+        Velocity(Vec2::new(0.0, 3.0)),
+        Adjustment(Vec2::new(0.0, 0.0)),
     )).with_children(|parent| {
         parent.spawn(MaterialMesh2dBundle {
             mesh: meshes.add(shape::Quad::default().into()).into(),
@@ -402,25 +416,46 @@ pub fn update_goal_animation(
 
 pub fn update_debug(
     mut app: ResMut<MyApp>, 
-    mut player_query: Query<&mut Transform, With<PlayerBlock>>,
+    mut player_query: Query<(&Velocity, &mut Transform), With<PlayerBlock>>,
     keyboard_input:  Res<Input<KeyCode>>,
     mouse_button_input: Res<Input<MouseButton>>,
     mut timer: ResMut<OneSecondTimer>,
     mut app_state: ResMut<NextState<AppState>>,
-    time: Res<Time>
+    mut settings: ResMut<bevy_framepace::FramepaceSettings>,
+    time: Res<Time>,
+    mut exit: EventWriter<bevy::app::AppExit>
 ) {
-    let mut player_transform = player_query.single_mut();
+    if !value::ISDEBUG {return;}
+    let (_player_velocity, mut player_transform) = player_query.single_mut();
     if keyboard_input.just_pressed(KeyCode::F2){
         app.stage_count += 1;
         if app.stage_count > value::MAXSTAGE{app_state.set(AppState::Ending);}
+        app.is_reset_game = true;
+    }
+    if keyboard_input.just_pressed(KeyCode::F3){
         app.is_reset_game = true;
     }
     if mouse_button_input.just_released(MouseButton::Right){
         player_transform.translation.x = app.mouse_pos.x;
         player_transform.translation.y = app.mouse_pos.y;
     }
+    if keyboard_input.just_pressed(KeyCode::Key1){
+        settings.limiter = bevy_framepace::Limiter::Off;
+    }
+    if keyboard_input.just_pressed(KeyCode::Key2){
+        settings.limiter = bevy_framepace::Limiter::from_framerate(60.0);
+    }
+    if keyboard_input.just_pressed(KeyCode::Key3){
+        settings.limiter = bevy_framepace::Limiter::from_framerate(30.0);
+    }if keyboard_input.just_pressed(KeyCode::Key4){
+        settings.limiter = bevy_framepace::Limiter::from_framerate(5.0);
+    }
+    if keyboard_input.just_pressed(KeyCode::Escape){
+        exit.send(bevy::app::AppExit);
+    }
     if !timer.0.tick(time.delta()).just_finished() { return; }
     //println!("FPS: {}", (1.0 / time.delta_seconds()) as i32);//フレームレート表示
+    
 }
 
 pub fn update_check_out_of_range(
@@ -435,15 +470,19 @@ pub fn update_check_out_of_range(
 
 pub fn update_player(
     mut app: ResMut<MyApp>, 
-    mut player_query: Query<(&mut Velocity, &mut Transform), With<PlayerBlock>>,
+    mut player_query: Query<(&mut Adjustment, &mut Velocity, &mut Transform), With<PlayerBlock>>,
     mouse_button_input: Res<Input<MouseButton>>,
+    //keyboard_input:  Res<Input<KeyCode>>,
     time: Res<Time>,
     mut jump_events: EventWriter<JumpEvent>,
 ) {
     app.timer += time.delta_seconds();
-
-    let (mut player_velocity, mut player_transform) = player_query.single_mut();
-    player_velocity.y += -15.0 * time.delta_seconds();
+    app.is_jump = false;
+    let (mut player_adjustment, mut player_velocity, mut player_transform) = player_query.single_mut();
+    player_adjustment.x = 0.0;
+    player_adjustment.y = 0.0;
+    let gravity = -15.0 * time.delta_seconds();
+    player_velocity.y += gravity; 
     let sax = app.mouse_pos.x - app.player_pos.x;
     let say = app.mouse_pos.y - app.player_pos.y;
     let val = say.atan2(sax);
@@ -455,13 +494,11 @@ pub fn update_player(
     else                                 { angle };
     let cnv_rad = angle * 3.1415 / 180.0; 
     player_transform.rotation = Quat::from_rotation_z(cnv_rad);
-
-    if player_transform.scale.y > value::BLOCKSIZE{ player_transform.scale.y -= time.delta_seconds() * 40.0;}
-    if player_transform.scale.x < value::BLOCKSIZE{
-        player_transform.scale.x += time.delta_seconds() * 20.0;
-    }
+    
+    if player_transform.scale.y > value::BLOCKSIZE{ player_transform.scale.y -= time.delta_seconds() * 40.0; }
+    if player_transform.scale.x < value::BLOCKSIZE{ player_transform.scale.x += time.delta_seconds() * 20.0; }
     if !app.is_ground && player_transform.scale.x > value::BLOCKSIZE{ player_transform.scale.x = value::BLOCKSIZE; }
-
+    
     if mouse_button_input.just_pressed(MouseButton::Left){
         if app.is_ground{
             player_transform.scale.x = value::BLOCKSIZE;
@@ -479,42 +516,42 @@ pub fn update_player(
     if mouse_button_input.just_released(MouseButton::Left){
         if app.is_ground{
             app.is_ground = false;
+            app.is_rising = true;
+            app.is_jump = true;
             let xv = -cnv_angle;
-            let yv = 90.0 - xv.abs() + 1.0;
-            let val = (value::BLOCKSIZE - player_transform.scale.y) * yv * time.delta_seconds() + 1.0;
-            player_velocity.y += val;
-            let jump_ratio = value::BLOCKSIZE - player_transform.scale.y;
-            player_velocity.x += xv * 5.0 * jump_ratio * time.delta_seconds();
-            player_transform.scale.y = value::BLOCKSIZE + (jump_ratio * 0.5);
-            player_transform.scale.x = value::BLOCKSIZE - (jump_ratio * 1.0);
+            //let yv = 90.0 - xv.abs() + 1.0;
+            let jump_val = value::BLOCKSIZE - player_transform.scale.y;
+            let y_val = jump_val * 0.75;
+            player_velocity.y += y_val;
+            let x_val = xv * jump_val * 0.02;
+            player_velocity.x += x_val;
+            player_transform.scale.y = value::BLOCKSIZE + (jump_val * 0.5);
+            player_transform.scale.x = value::BLOCKSIZE - (jump_val * 1.0);
             app.jump_count += 1;
             jump_events.send_default();
         }
     }
 
-    if player_velocity.x < -value::MAXSPEED{player_velocity.x = -value::MAXSPEED;}
-    if player_velocity.x > value::MAXSPEED {player_velocity.x = value::MAXSPEED;}
-    if player_velocity.y < -value::MAXSPEED{player_velocity.y = -value::MAXSPEED;}
-    if player_velocity.y > value::MAXSPEED * 2.0 {player_velocity.y = value::MAXSPEED * 2.0;}
+    if player_velocity.x < -value::MAXSPEED { player_velocity.x = -value::MAXSPEED; }
+    if player_velocity.x > value::MAXSPEED  { player_velocity.x = value::MAXSPEED; }
+    if player_velocity.y < -value::MAXSPEED { player_velocity.y = -value::MAXSPEED; }
+    if player_velocity.y > value::MAXSPEED  { player_velocity.y = value::MAXSPEED; }
 }
 
-pub fn update_check_for_collisions(
-    mut app: ResMut<MyApp>, 
-    mut player_query: Query<(&mut Velocity, &Transform), With<PlayerBlock>>,
-    block_query: Query<&Transform, With<BGBlock>>,
-    mut landing_events: EventWriter<LandingEvent>
+fn check_for_collisions(
+    is_side_hit: &mut bool,
+    is_top_hit: &mut bool,
+    is_rising: bool,
+    is_ground: &mut bool,
+    block_query: &Query<&Transform, With<BGBlock>>,
+    player_adjustment: &mut Vec2,
+    player_velocity: &mut Vec2,
+    player_velocity_delta: &mut Vec2,
+    p_min: Vec2,
+    p_max: Vec2,
+    op_min: Vec2,
+    op_max: Vec2,
 ) {
-    let (mut player_velocity, player_transform) = player_query.single_mut();
-    //let player_size = player_transform.scale.truncate();
-    let player_size = Vec2::new(value::BLOCKSIZE, player_transform.scale.y);
-    //let player_size = value::BLOCKSIZE;
-    let offset = 2.0;
-    let op_min = player_transform.translation.truncate() - player_size * 0.5 + offset;
-    let op_max = player_transform.translation.truncate() + player_size * 0.5 - offset;
-    let p_min = op_min + **player_velocity;
-    let p_max = op_max + **player_velocity;
-    let rto = 2.0;//左右の跳ね返り倍率
-    
     let mut hit_blocks = Vec::new();
     for  transform in block_query.iter() {//接触しているブロックのtransformを取得、接触しているブロックの色替え
         let b_min = transform.translation.truncate() - transform.scale.truncate() / 2.0;
@@ -527,15 +564,14 @@ pub fn update_check_for_collisions(
     for t in &hit_blocks{//上下左右の4面の接触判定
         let b_min = t.translation.truncate() - t.scale.truncate() / 2.0;
         let b_max = t.translation.truncate() + t.scale.truncate() / 2.0; 
-        if player_velocity.y < 0.0{
+        if !is_rising{
             let p_pos = Vec2::new((p_min.x + p_max.x)*0.5, p_min.y);//pの下チェック
             let ry = collision::check_bottom_collide(p_pos, b_min, b_max);
-            if ry != 0.0{
-                player_velocity.y += ry;
+            if ry != 0.0 && !is_rising{
+                player_adjustment.y += ry;
                 is_hit = true;
-                if !app.is_ground {
-                    app.is_ground = true;
-                    landing_events.send_default();
+                if !*is_ground {
+                    *is_ground = true;
                 }
             }
         }
@@ -543,61 +579,127 @@ pub fn update_check_for_collisions(
         let p_pos = Vec2::new((p_min.x + p_max.x)*0.5, p_max.y);//pの上チェック
         let ry = collision::check_top_collide(p_pos, b_min, b_max);
         if ry != 0.0{
-            player_velocity.y += ry;
+            *is_top_hit = true;
+            player_adjustment.y += ry;
             is_hit = true;
         }
         let p_pos = Vec2::new(p_min.x, (p_min.y+p_max.y)*0.5);//pの左チェック
         let rx = collision::check_left_collide(p_pos, b_min, b_max);
         if rx != 0.0{
-            if app.is_ground{ player_velocity.x += rx; }
-            else            { player_velocity.x += rx*rto; }
+            player_adjustment.x += rx;
+            if !*is_ground{ 
+                player_velocity.x = -player_velocity.x;
+                player_velocity_delta.x = -player_velocity_delta.x;
+            }
+            *is_side_hit = true;
             is_hit = true;
         }
         let p_pos = Vec2::new(p_max.x, (p_min.y+p_max.y)*0.5);//pの右チェック
         let rx = collision::check_right_collide(p_pos, b_min, b_max);
         if rx != 0.0{
-            if app.is_ground{ player_velocity.x += rx; }
-            else            { player_velocity.x += rx*rto; }
+            player_adjustment.x += rx;
+            if !*is_ground{ 
+                player_velocity.x = -player_velocity.x;
+                player_velocity_delta.x = -player_velocity_delta.x;
+            }
+            *is_side_hit = true;
             is_hit = true;
         }
     }
+    
     if is_hit { return; }
     for t in &hit_blocks {//各頂点の接触判定
         let b_min = t.translation.truncate() - t.scale.truncate() / 2.0;
         let b_max = t.translation.truncate() + t.scale.truncate() / 2.0; 
-        let (rx, ry) = collision::check_left_bottom_collide(op_min, op_max,**player_velocity, b_min, b_max);
-        if ry > 0.0 && !app.is_ground && player_velocity.y < 0.0{
-            app.is_ground = true;
-            landing_events.send_default();
+        let (rx, ry) = collision::check_left_bottom_collide(op_min, op_max,*player_velocity_delta+*player_adjustment, b_min, b_max);
+        if ry > 0.0 && !*is_ground && player_velocity.y < 0.0{ *is_ground = true; }
+        if rx != 0.0{
+            player_adjustment.x += rx;
+            if !*is_ground{ 
+                player_velocity.x = -player_velocity.x;
+                player_velocity_delta.x = -player_velocity_delta.x;
+            }
+            *is_side_hit = true;
         }
-        if app.is_ground{ player_velocity.x += rx; }
-        else            { player_velocity.x += rx*rto; }
-        player_velocity.y += ry;
-        let (rx, ry) = collision::check_right_bottom_collide(op_min, op_max,**player_velocity, b_min, b_max);
-        if ry > 0.0 && !app.is_ground && player_velocity.y < 0.0{
-            app.is_ground = true;
-            landing_events.send_default();
+        if !is_rising {player_adjustment.y += ry;}
+        let (rx, ry) = collision::check_right_bottom_collide(op_min, op_max,*player_velocity_delta+*player_adjustment, b_min, b_max);
+        if ry > 0.0 && !*is_ground && player_velocity.y < 0.0{ *is_ground = true; }
+        if rx != 0.0{
+            player_adjustment.x += rx;
+            if !*is_ground{ 
+                player_velocity.x = -player_velocity.x;
+                player_velocity_delta.x = -player_velocity_delta.x;
+            }
+            *is_side_hit = true;
         }
-        if app.is_ground{ player_velocity.x += rx; }
-        else            { player_velocity.x += rx*rto; }
-        player_velocity.y += ry;
-        let (rx, ry) = collision::check_left_top_collide(op_min, op_max,**player_velocity, b_min, b_max);
-        if app.is_ground{ player_velocity.x += rx; }
-        else            { player_velocity.x += rx*rto; }
-        player_velocity.y += ry;
-        let (rx, ry) = collision::check_right_top_collide(op_min, op_max,**player_velocity, b_min, b_max);
-        if app.is_ground{ player_velocity.x += rx; }
-        else            { player_velocity.x += rx*rto; }
-        player_velocity.y += ry;
+        if !is_rising {player_adjustment.y += ry;}
+        let (rx, ry) = collision::check_left_top_collide(op_min, op_max,*player_velocity_delta+*player_adjustment, b_min, b_max);
+        if rx != 0.0{
+            player_adjustment.x += rx;
+            if !*is_ground{ 
+                player_velocity.x = -player_velocity.x;
+                player_velocity_delta.x = -player_velocity_delta.x;
+            }
+            *is_side_hit = true;
+        }
+        if ry != 0.0{ *is_top_hit = true; }
+        player_adjustment.y += ry;
+        let (rx, ry) = collision::check_right_top_collide(op_min, op_max,*player_velocity_delta+*player_adjustment, b_min, b_max);
+        if rx != 0.0{
+            player_adjustment.x += rx;
+            if !*is_ground{ 
+                player_velocity.x = -player_velocity.x;
+                player_velocity_delta.x = -player_velocity_delta.x;
+            }
+            *is_side_hit = true;
+        }
+        if ry != 0.0{ *is_top_hit = true; }
+        player_adjustment.y += ry;
     }
 }
 
+pub fn update_check_for_collisions(
+    mut app: ResMut<MyApp>, 
+    mut player_query: Query<(&mut Adjustment, &mut Velocity, &Transform), With<PlayerBlock>>,
+    block_query: Query<&Transform, With<BGBlock>>,
+    mut landing_events: EventWriter<LandingEvent>,
+    mut side_landing_events: EventWriter<SideLandingEvent>,
+    time: Res<Time>,
+) {
+    let (mut player_adjustment, mut player_velocity, player_transform) = player_query.single_mut();
+    let player_size = Vec2::new(value::BLOCKSIZE, player_transform.scale.y);
+    let offset = 2.0;
+    let op_min = player_transform.translation.truncate() - player_size * 0.5 + offset;
+    let op_max = player_transform.translation.truncate() + player_size * 0.5 - offset;
+
+    let mut player_velocity_delta = **player_velocity * (time.delta_seconds() / value::PER60FPS) * 1.0;
+    let p_min = op_min + player_velocity_delta;
+    let p_max = op_max + player_velocity_delta;
+    let mut is_ground = app.is_ground;
+    let is_rising = app.is_rising;
+    let mut is_hit_top = false;
+    let mut is_hit_side = false;
+    check_for_collisions(&mut is_hit_side,&mut is_hit_top,is_rising,&mut is_ground,&block_query,&mut player_adjustment,&mut player_velocity,&mut player_velocity_delta,p_min, p_max,op_min,op_max);
+    if is_hit_top && player_velocity.y > 0.0{player_velocity.y = 0.0; app.is_rising = false;}
+    if is_hit_side || is_hit_top { side_landing_events.send_default(); }
+    if !app.is_block_hit && player_adjustment.y > 0.0 && !app.is_ground{ landing_events.send_default(); }
+    if player_adjustment.y == 0.0 {app.is_block_hit = false;}
+    else                          {app.is_block_hit = true;}
+    //if !app.is_ground && is_ground { landing_events.send_default(); }
+    app.is_ground = is_ground;
+    
+}
+
 pub fn update_play_sound(
+    mut app: ResMut<MyApp>, 
     mut commands: Commands,
     jump_sound: Res<JumpSound>,
     mut jump_events: EventReader<JumpEvent>,
     landing_sound: Res<LandingSound>,
     mut landing_events: EventReader<LandingEvent>,
+    side_landing_sound: Res<SideLandingSound>,
+    mut side_landing_events: EventReader<SideLandingEvent>,
+    time: Res<Time>,
 ) {
     if !jump_events.is_empty() {
         jump_events.clear();
@@ -622,7 +724,21 @@ pub fn update_play_sound(
                 ..default()
             },
         });
-    }    
+    } 
+
+    if !side_landing_events.is_empty() && app.side_hit_sound_interval > 0.15 {
+        app.side_hit_sound_interval = 0.0;
+        side_landing_events.clear();
+        commands.spawn(AudioBundle {
+            source: side_landing_sound.0.clone(),
+            settings: PlaybackSettings {
+                mode: bevy::audio::PlaybackMode::Despawn,
+                volume: bevy::audio::Volume::Relative(bevy::audio::VolumeLevel::new(0.05)),
+                ..default()
+            },
+        });
+    }
+    app.side_hit_sound_interval += time.delta_seconds();
 }
 
 pub fn update_check_goal(
@@ -672,20 +788,29 @@ pub fn update_reset_game(
 
 pub fn update_apply_velocity(
     mut app: ResMut<MyApp>, 
-    mut player_query: Query<(&mut Transform, &mut Velocity), With<PlayerBlock>>,
+    mut player_query: Query<(&Adjustment, &mut Transform, &mut Velocity), With<PlayerBlock>>,
+    time: Res<Time>,
 ) {
-    let (mut player_transform, mut player_velocity) = player_query.single_mut();    
-    player_transform.translation.x += player_velocity.x;
-    player_transform.translation.y += player_velocity.y;
-    if app.is_ground{
-        player_velocity.x = player_velocity.x * 0.75;
-    }else{
-        player_velocity.x = player_velocity.x * 0.99;
-    }
+    let (player_adjustment, mut player_transform, mut player_velocity) = player_query.single_mut();    
+    let delta_player_velocity = **player_velocity * (time.delta_seconds() / value::PER60FPS);
+    player_transform.translation.x += player_adjustment.x;
+    player_transform.translation.y += player_adjustment.y;
+    player_transform.translation.x += delta_player_velocity.x;
+    player_transform.translation.y += delta_player_velocity.y;
+
+    if player_adjustment.y > 0.0 { player_velocity.y = 0.0; }
+
+    if app.old_velocity_y > 0.0 && player_velocity.y < 0.0 { app.is_rising = false; }
+    app.old_velocity_y = player_velocity.y;
+    if app.is_ground{ player_velocity.x = player_velocity.x * (1.0 - time.delta_seconds() * 20.0); }
+    else            { player_velocity.x = player_velocity.x * (1.0 - time.delta_seconds() *  1.0); }
     if app.is_reset_game{
         player_transform.translation.x = value::DEFAULTPOSX;
         player_transform.translation.y = value::DEFAULTPOSY;
+        app.is_ground = false;
+        app.is_rising = false;
     }
     app.player_pos.x = player_transform.translation.x;
     app.player_pos.y = player_transform.translation.y;
+    if app.is_ground {app.is_rising = false;}
 }
