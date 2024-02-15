@@ -7,6 +7,7 @@ use define::value;
 
 mod collision;
 mod define;
+pub mod block;
 pub mod state;
 
 fn main() {
@@ -29,6 +30,9 @@ fn set_exec(){
             }),
             exit_condition: bevy::window::ExitCondition::OnAllClosed,
             close_when_requested: true,
+            ..default()
+        }).set(bevy::log::LogPlugin{
+            level: bevy::log::Level::WARN,
             ..default()
         }))
         .add_plugins(state::StatePlugin)

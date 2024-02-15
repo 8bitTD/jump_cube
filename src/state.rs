@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use super::define::*;
 use super::collision;
+
 pub mod game;
 pub mod ending;
 #[derive(Debug, Resource, Default, Copy, Clone)] 
@@ -15,6 +16,8 @@ pub struct MyApp{
     pub is_rising: bool,
     pub is_jump: bool,
     pub is_block_hit: bool,
+    pub is_bend: bool,
+    pub angle: f32,
     pub side_hit_sound_interval: f32,
     pub is_reset_game: bool,
     pub stage_count: u32,
@@ -33,6 +36,8 @@ impl Default for MyApp{
             is_rising: true,
             is_jump: true,
             is_block_hit: false,
+            is_bend: false,
+            angle: 0.0,
             side_hit_sound_interval: 0.0,
             is_reset_game: false,
             stage_count: 1,

@@ -13,7 +13,7 @@ pub struct MoveText {
 }
 impl Default for MoveText{
     fn default() -> MoveText{
-        MoveText { up_value: 0.0, up_offset: 550.0, timer: 0.0 }
+        MoveText { up_value: 0.0, up_offset: 610.0, timer: 0.0 }
     }
 }
 
@@ -143,6 +143,7 @@ pub fn update_debug(
     mut app_state: ResMut<NextState<AppState>>,
     keyboard_input:  Res<Input<KeyCode>>,
 ) {
+    if !value::ISDEBUG{return;}
     if keyboard_input.just_pressed(KeyCode::F2){
         app_state.set(AppState::Game);
     }
@@ -166,7 +167,7 @@ pub fn update_move_text(
 ) {
     mt.up_value = mt.up_value + time.delta_seconds();
     let mut transform = query.single_mut();
-    let mut val = (100.0 * mt.up_value as f32) - mt.up_offset ;
+    let mut val = (80.0 * mt.up_value as f32) - mt.up_offset ;
     if val > value::ENDINGTEXTMOVE {val = value::ENDINGTEXTMOVE;}
     transform.translation.y = val;
     if val == value::ENDINGTEXTMOVE {mt.timer += time.delta_seconds();}

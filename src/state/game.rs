@@ -1,15 +1,14 @@
 use bevy::{
     prelude::*,
-    sprite::*, 
     render::mesh::*,
     sprite::MaterialMesh2dBundle,
     window::PrimaryWindow,
 };
-use rand::{thread_rng, Rng};
-use rand::distributions::{Distribution, Uniform};
+
 use super::common;
 use super::collision;
 use super::super::state::*;
+use super::super::block::*;
 
 #[derive(Component)]
 pub struct CameraMarker;
@@ -234,161 +233,7 @@ pub fn update_fade_stage_text(
         };
         t.sections[0].style.color = Color::rgba(1.0,1.0,1.0, alpha);
     }
-    /*
-    let mut text = text_query.single_mut();
-    if app.text_stage_alpha == value::DEFAULTTEXTSTAGEALPHA{
-        text.sections[0].value =  match app.stage_count == value::MAXSTAGE{
-            true => {"Last Stage".into()},
-            _ => {format!("Stage {}",app.stage_count)},
-        };
-    }
-    let alpha = match app.text_stage_alpha > 1.0{
-        true => 1.0,
-        _ => app.text_stage_alpha,
-    };
-    text.sections[0].style.color = Color::rgba(1.0,1.0,1.0, alpha);
-    */
     app.text_stage_alpha -= time.delta_seconds();
-}
-
-pub fn create_block(
-    stage_count: u32,
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
-){
-    let mut rng = thread_rng();
-    let height = 10*(stage_count*2);
-    for x in 2..49{
-        for y in 2..height{
-            let v: u32 = rng.gen();
-            if v % (2+(stage_count*2)) != 0{continue;}
-            let xx = x as f32;
-            let yy = y as f32;
-            commands.spawn((
-                MaterialMesh2dBundle {
-                mesh: meshes.add(shape::Quad::default().into()).into(),
-                transform: Transform::default().with_translation(Vec3::new(xx*20.0,yy*20.0,0.0)).with_scale(Vec3::splat(20.0)),
-                material: materials.add(Color::GRAY.into()),
-                ..default()
-                },
-                BGBlock,
-                ReleaseResource
-            )).with_children(|parent| {
-                parent.spawn(MaterialMesh2dBundle {
-                    mesh: meshes.add(shape::Quad::default().into()).into(),
-                    transform: Transform::default().with_translation(Vec3::new(0.0,0.0,1.0)).with_scale(Vec3::splat(0.9)),
-                    material: materials.add(Color::DARK_GRAY.into()),
-                    ..default()
-                });
-            });
-        }
-    }
-    
-    let range = Uniform::new(2,49);
-    let mut rng = rand::thread_rng();
-    let x = range.sample(&mut rng);
-    let goal_or_next = match stage_count == value::MAXSTAGE{
-        true => {"GOAL!"},
-        _ => {"NEXT!"},
-    };
-    let gm = GoalMarker{color: Color::rgb(0.0, 1.0, 0.0)};
-    commands.spawn((
-        MaterialMesh2dBundle {
-        mesh: meshes.add(shape::Quad::default().into()).into(),
-        transform: Transform::default().with_translation(Vec3::new(x as f32*20.0, height as f32 * 20.0,0.0)).with_scale(Vec3::splat(20.0)),
-        material: materials.add(gm.color.clone().into()),
-        ..default()
-        },
-        gm,
-        GoalBlock,
-        ReleaseResource
-    )).with_children(|parent| {
-        parent.spawn(MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Quad::default().into()).into(),
-            transform: Transform::default().with_translation(Vec3::new(0.0,0.0,1.0)).with_scale(Vec3::splat(0.9)),
-            material: materials.add(Color::BLACK.into()),
-            ..default()
-        });
-
-        for (u, c) in goal_or_next.chars().enumerate(){
-            parent.spawn((
-                Text2dBundle {
-                    text: Text::from_section(c.to_string(), TextStyle {
-                        font: asset_server.load(common::DEFAULTFONT),
-                        font_size: 100.0,
-                        color: Color::WHITE,
-                    }),
-                    text_anchor: Anchor::BottomCenter,
-                    transform: Transform{
-                        translation: Vec3::new((u as f32 * 0.4) - 0.60,-1.2,2.0),
-                        scale: Vec3::new(0.01,0.01,0.01),
-                        ..default()
-                    },
-                    ..default()
-                },
-                GoalText,
-                ReleaseResource,
-            ));
-        }
-    });
-    
-    for i in 1..50{
-        let v = i as f32;
-        commands.spawn((
-            MaterialMesh2dBundle {//下面ブロック
-            mesh: meshes.add(shape::Quad::default().into()).into(),
-            transform: Transform::default().with_translation(Vec3::new(v*20.0,0.0,0.0)).with_scale(Vec3::splat(20.0)),
-            material: materials.add(Color::GRAY.into()),
-            ..default()
-            },
-            BGBlock,
-            ReleaseResource
-        )).with_children(|parent| {
-            parent.spawn(MaterialMesh2dBundle {//下面ブロック
-                mesh: meshes.add(shape::Quad::default().into()).into(),
-                transform: Transform::default().with_translation(Vec3::new(0.0,0.0,1.0)).with_scale(Vec3::splat(0.9)),
-                material: materials.add(Color::DARK_GRAY.into()),
-                ..default()
-            });
-        });
-    }
-    for i in 0..(height+1+30){
-        let v = i as f32;
-        commands.spawn((MaterialMesh2dBundle {//左面ブロック
-            mesh: meshes.add(shape::Quad::default().into()).into(),
-            transform: Transform::default().with_translation(Vec3::new(0.0,v*20.0,0.0)).with_scale(Vec3::splat(20.0)),
-            material: materials.add(Color::GRAY.into()),
-            ..default()
-            },
-            BGBlock,
-            ReleaseResource
-        )).with_children(|parent| {
-            parent.spawn(MaterialMesh2dBundle {
-                mesh: meshes.add(shape::Quad::default().into()).into(),
-                transform: Transform::default().with_translation(Vec3::new(0.0,0.0,1.0)).with_scale(Vec3::splat(0.9)),
-                material: materials.add(Color::DARK_GRAY.into()),
-                ..default()
-            });
-        });
-        commands.spawn((MaterialMesh2dBundle {//右面ブロック
-            mesh: meshes.add(shape::Quad::default().into()).into(),
-            transform: Transform::default().with_translation(Vec3::new(1000.0,v*20.0,0.0)).with_scale(Vec3::splat(20.0)),
-            material: materials.add(Color::GRAY.into()),
-            ..default()
-            },
-            BGBlock,
-            ReleaseResource
-        )).with_children(|parent| {
-            parent.spawn(MaterialMesh2dBundle {
-                mesh: meshes.add(shape::Quad::default().into()).into(),
-                transform: Transform::default().with_translation(Vec3::new(0.0,0.0,1.0)).with_scale(Vec3::splat(0.9)),
-                material: materials.add(Color::DARK_GRAY.into()),
-                ..default()
-            });
-        });
-    }
 }
 
 pub fn update_goal_animation(
@@ -478,6 +323,7 @@ pub fn update_player(
 ) {
     app.timer += time.delta_seconds();
     app.is_jump = false;
+    app.is_bend = false;
     let (mut player_adjustment, mut player_velocity, mut player_transform) = player_query.single_mut();
     player_adjustment.x = 0.0;
     player_adjustment.y = 0.0;
@@ -492,11 +338,17 @@ pub fn update_player(
     let cnv_angle = if angle > 90.0 { 90.0 - (angle - 90.0) }
     else if angle < -90.0                { -90.0 - (angle + 90.0) }
     else                                 { angle };
-    let cnv_rad = angle * 3.1415 / 180.0; 
-    player_transform.rotation = Quat::from_rotation_z(cnv_rad);
     
+    let cnv_rad = angle * 3.1415 / 180.0; 
+
+    if !app.is_ground && !app.is_rising{
+        app.angle = cnv_angle;
+        player_transform.rotation = Quat::from_rotation_z(cnv_rad); 
+    }
+
     if player_transform.scale.y > value::BLOCKSIZE{ player_transform.scale.y -= time.delta_seconds() * 40.0; }
-    if player_transform.scale.x < value::BLOCKSIZE{ player_transform.scale.x += time.delta_seconds() * 20.0; }
+    if player_transform.scale.x <= value::BLOCKSIZE{ player_transform.scale.x += time.delta_seconds() * 20.0; }
+
     if !app.is_ground && player_transform.scale.x > value::BLOCKSIZE{ player_transform.scale.x = value::BLOCKSIZE; }
     
     if mouse_button_input.just_pressed(MouseButton::Left){
@@ -506,7 +358,8 @@ pub fn update_player(
         }
     }
     if mouse_button_input.pressed(MouseButton::Left) {
-        if app.is_ground{
+        if app.is_ground {
+            app.is_bend = true;
             player_transform.scale.y -= 20.0 * time.delta_seconds();
             player_transform.scale.x += 10.0 * time.delta_seconds();
             if player_transform.scale.y < 10.0 { player_transform.scale.y = 10.0; }
@@ -515,11 +368,9 @@ pub fn update_player(
     }
     if mouse_button_input.just_released(MouseButton::Left){
         if app.is_ground{
-            app.is_ground = false;
-            app.is_rising = true;
-            app.is_jump = true;
-            let xv = -cnv_angle;
-            //let yv = 90.0 - xv.abs() + 1.0;
+           
+            //let xv = -cnv_angle;
+            let xv = -app.angle;
             let jump_val = value::BLOCKSIZE - player_transform.scale.y;
             let y_val = jump_val * 0.75;
             player_velocity.y += y_val;
@@ -529,6 +380,9 @@ pub fn update_player(
             player_transform.scale.x = value::BLOCKSIZE - (jump_val * 1.0);
             app.jump_count += 1;
             jump_events.send_default();
+            app.is_ground = false;
+            app.is_rising = true;
+            app.is_jump = true;
         }
     }
 
@@ -536,126 +390,6 @@ pub fn update_player(
     if player_velocity.x > value::MAXSPEED  { player_velocity.x = value::MAXSPEED; }
     if player_velocity.y < -value::MAXSPEED { player_velocity.y = -value::MAXSPEED; }
     if player_velocity.y > value::MAXSPEED  { player_velocity.y = value::MAXSPEED; }
-}
-
-fn check_for_collisions(
-    is_side_hit: &mut bool,
-    is_top_hit: &mut bool,
-    is_rising: bool,
-    is_ground: &mut bool,
-    block_query: &Query<&Transform, With<BGBlock>>,
-    player_adjustment: &mut Vec2,
-    player_velocity: &mut Vec2,
-    player_velocity_delta: &mut Vec2,
-    p_min: Vec2,
-    p_max: Vec2,
-    op_min: Vec2,
-    op_max: Vec2,
-) {
-    let mut hit_blocks = Vec::new();
-    for  transform in block_query.iter() {//接触しているブロックのtransformを取得、接触しているブロックの色替え
-        let b_min = transform.translation.truncate() - transform.scale.truncate() / 2.0;
-        let b_max = transform.translation.truncate() + transform.scale.truncate() / 2.0; 
-        if !collision::is_in(p_min, p_max, b_min, b_max){continue;}
-        hit_blocks.push(transform);
-    }
-    if hit_blocks.is_empty() { return;}
-    let mut is_hit = false;
-    for t in &hit_blocks{//上下左右の4面の接触判定
-        let b_min = t.translation.truncate() - t.scale.truncate() / 2.0;
-        let b_max = t.translation.truncate() + t.scale.truncate() / 2.0; 
-        if !is_rising{
-            let p_pos = Vec2::new((p_min.x + p_max.x)*0.5, p_min.y);//pの下チェック
-            let ry = collision::check_bottom_collide(p_pos, b_min, b_max);
-            if ry != 0.0 && !is_rising{
-                player_adjustment.y += ry;
-                is_hit = true;
-                if !*is_ground {
-                    *is_ground = true;
-                }
-            }
-        }
-        
-        let p_pos = Vec2::new((p_min.x + p_max.x)*0.5, p_max.y);//pの上チェック
-        let ry = collision::check_top_collide(p_pos, b_min, b_max);
-        if ry != 0.0{
-            *is_top_hit = true;
-            player_adjustment.y += ry;
-            is_hit = true;
-        }
-        let p_pos = Vec2::new(p_min.x, (p_min.y+p_max.y)*0.5);//pの左チェック
-        let rx = collision::check_left_collide(p_pos, b_min, b_max);
-        if rx != 0.0{
-            player_adjustment.x += rx;
-            if !*is_ground{ 
-                player_velocity.x = -player_velocity.x;
-                player_velocity_delta.x = -player_velocity_delta.x;
-            }
-            *is_side_hit = true;
-            is_hit = true;
-        }
-        let p_pos = Vec2::new(p_max.x, (p_min.y+p_max.y)*0.5);//pの右チェック
-        let rx = collision::check_right_collide(p_pos, b_min, b_max);
-        if rx != 0.0{
-            player_adjustment.x += rx;
-            if !*is_ground{ 
-                player_velocity.x = -player_velocity.x;
-                player_velocity_delta.x = -player_velocity_delta.x;
-            }
-            *is_side_hit = true;
-            is_hit = true;
-        }
-    }
-    
-    if is_hit { return; }
-    for t in &hit_blocks {//各頂点の接触判定
-        let b_min = t.translation.truncate() - t.scale.truncate() / 2.0;
-        let b_max = t.translation.truncate() + t.scale.truncate() / 2.0; 
-        let (rx, ry) = collision::check_left_bottom_collide(op_min, op_max,*player_velocity_delta+*player_adjustment, b_min, b_max);
-        if ry > 0.0 && !*is_ground && player_velocity.y < 0.0{ *is_ground = true; }
-        if rx != 0.0{
-            player_adjustment.x += rx;
-            if !*is_ground{ 
-                player_velocity.x = -player_velocity.x;
-                player_velocity_delta.x = -player_velocity_delta.x;
-            }
-            *is_side_hit = true;
-        }
-        if !is_rising {player_adjustment.y += ry;}
-        let (rx, ry) = collision::check_right_bottom_collide(op_min, op_max,*player_velocity_delta+*player_adjustment, b_min, b_max);
-        if ry > 0.0 && !*is_ground && player_velocity.y < 0.0{ *is_ground = true; }
-        if rx != 0.0{
-            player_adjustment.x += rx;
-            if !*is_ground{ 
-                player_velocity.x = -player_velocity.x;
-                player_velocity_delta.x = -player_velocity_delta.x;
-            }
-            *is_side_hit = true;
-        }
-        if !is_rising {player_adjustment.y += ry;}
-        let (rx, ry) = collision::check_left_top_collide(op_min, op_max,*player_velocity_delta+*player_adjustment, b_min, b_max);
-        if rx != 0.0{
-            player_adjustment.x += rx;
-            if !*is_ground{ 
-                player_velocity.x = -player_velocity.x;
-                player_velocity_delta.x = -player_velocity_delta.x;
-            }
-            *is_side_hit = true;
-        }
-        if ry != 0.0{ *is_top_hit = true; }
-        player_adjustment.y += ry;
-        let (rx, ry) = collision::check_right_top_collide(op_min, op_max,*player_velocity_delta+*player_adjustment, b_min, b_max);
-        if rx != 0.0{
-            player_adjustment.x += rx;
-            if !*is_ground{ 
-                player_velocity.x = -player_velocity.x;
-                player_velocity_delta.x = -player_velocity_delta.x;
-            }
-            *is_side_hit = true;
-        }
-        if ry != 0.0{ *is_top_hit = true; }
-        player_adjustment.y += ry;
-    }
 }
 
 pub fn update_check_for_collisions(
@@ -669,8 +403,8 @@ pub fn update_check_for_collisions(
     let (mut player_adjustment, mut player_velocity, player_transform) = player_query.single_mut();
     let player_size = Vec2::new(value::BLOCKSIZE, player_transform.scale.y);
     let offset = 2.0;
-    let op_min = player_transform.translation.truncate() - player_size * 0.5 + offset;
-    let op_max = player_transform.translation.truncate() + player_size * 0.5 - offset;
+    let op_min = player_transform.translation.truncate() - player_size * 0.5 + (offset * 0.5);
+    let op_max = player_transform.translation.truncate() + player_size * 0.5 - (offset * 1.5);
 
     let mut player_velocity_delta = **player_velocity * (time.delta_seconds() / value::PER60FPS) * 1.0;
     let p_min = op_min + player_velocity_delta;
@@ -679,15 +413,18 @@ pub fn update_check_for_collisions(
     let is_rising = app.is_rising;
     let mut is_hit_top = false;
     let mut is_hit_side = false;
-    check_for_collisions(&mut is_hit_side,&mut is_hit_top,is_rising,&mut is_ground,&block_query,&mut player_adjustment,&mut player_velocity,&mut player_velocity_delta,p_min, p_max,op_min,op_max);
-    if is_hit_top && player_velocity.y > 0.0{player_velocity.y = 0.0; app.is_rising = false;}
-    if is_hit_side || is_hit_top { side_landing_events.send_default(); }
-    if !app.is_block_hit && player_adjustment.y > 0.0 && !app.is_ground{ landing_events.send_default(); }
-    if player_adjustment.y == 0.0 {app.is_block_hit = false;}
-    else                          {app.is_block_hit = true;}
-    //if !app.is_ground && is_ground { landing_events.send_default(); }
+    let old_is_block_hit = app.is_block_hit;
+    collision::check_for_collisions(&mut is_hit_side,&mut is_hit_top,is_rising,&mut is_ground,&block_query,&mut player_adjustment,&mut player_velocity,&mut player_velocity_delta,p_min, p_max,op_min,op_max);
+    if is_hit_top && player_velocity.y > 0.0 {player_velocity.y = 0.0; app.is_rising = false;}
+    if player_adjustment.y != 0.0 || is_hit_side || is_hit_top {app.is_block_hit = true;}
+    else{ app.is_block_hit = false; }
+    if !old_is_block_hit && app.is_block_hit && player_adjustment.y > 0.0 && !is_hit_side && !is_hit_top && !app.is_bend { 
+        landing_events.send_default();
+    }
+    else if !old_is_block_hit && is_hit_side  { side_landing_events.send_default(); }
+    else if !old_is_block_hit && is_hit_top   { side_landing_events.send_default(); }
+
     app.is_ground = is_ground;
-    
 }
 
 pub fn update_play_sound(
