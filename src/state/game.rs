@@ -65,8 +65,8 @@ pub fn update_camera_move(
     time: Res<Time>,
 ) {
     let (camera, mut camera_transform, camera_global_transform) = camera_query.single_mut();
-    camera_transform.translation.x += (app.player_pos.x - camera_transform.translation.x) * 0.05 * (time.delta_seconds() / value::PER60FPS);
-    camera_transform.translation.y += (app.player_pos.y - camera_transform.translation.y) * 0.05 * (time.delta_seconds() / value::PER60FPS);
+    camera_transform.translation.x += (app.player_pos.x - camera_transform.translation.x) * 0.075 * (time.delta_seconds() / value::PER60FPS);
+    camera_transform.translation.y += (app.player_pos.y - camera_transform.translation.y) * 0.075 * (time.delta_seconds() / value::PER60FPS);
     if app.is_reset_game{
         camera_transform.translation.x = value::DEFAULTCAMERAPOSX;
         camera_transform.translation.y = value::DEFAULTCAMERAPOSY;
