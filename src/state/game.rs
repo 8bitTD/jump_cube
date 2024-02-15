@@ -66,8 +66,8 @@ pub fn update_camera_move(
     time: Res<Time>,
 ) {
     let (camera, mut camera_transform, camera_global_transform) = camera_query.single_mut();
-    camera_transform.translation.x += (app.player_pos.x - camera_transform.translation.x) * 0.01 * (time.delta_seconds() / value::PER60FPS);
-    camera_transform.translation.y += (app.player_pos.y - camera_transform.translation.y) * 0.01 * (time.delta_seconds() / value::PER60FPS);
+    camera_transform.translation.x += (app.player_pos.x - camera_transform.translation.x) * 0.05 * (time.delta_seconds() / value::PER60FPS);
+    camera_transform.translation.y += (app.player_pos.y - camera_transform.translation.y) * 0.05 * (time.delta_seconds() / value::PER60FPS);
     if app.is_reset_game{
         camera_transform.translation.x = value::DEFAULTCAMERAPOSX;
         camera_transform.translation.y = value::DEFAULTCAMERAPOSY;
@@ -98,7 +98,7 @@ pub fn setup_asset(
     commands.spawn((cam, ReleaseResource, CameraMarker));
     
     commands.spawn((AudioBundle {
-        source: asset_server.load(common::BGM),
+        source: asset_server.load(assets::BGM),
         settings: PlaybackSettings{
             mode: bevy::audio::PlaybackMode::Loop,
             volume: bevy::audio::Volume::Relative(bevy::audio::VolumeLevel::new(value::VOLUME)),
@@ -109,11 +109,11 @@ pub fn setup_asset(
         ReleaseResource
     ));
 
-    commands.insert_resource(JumpSound(asset_server.load(common::SOUNDJUMP)));
-    commands.insert_resource(LandingSound(asset_server.load(common::SOUNDLANDING)));
-    commands.insert_resource(SideLandingSound(asset_server.load(common::SOUNDSIDELANDING)));
+    commands.insert_resource(JumpSound(asset_server.load(assets::SOUNDJUMP)));
+    commands.insert_resource(LandingSound(asset_server.load(assets::SOUNDLANDING)));
+    commands.insert_resource(SideLandingSound(asset_server.load(assets::SOUNDSIDELANDING)));
 
-    let font = asset_server.load(common::DEFAULTFONT);
+    let font = asset_server.load(assets::DEFAULTFONT);
     let text = match app.stage_count == value::MAXSTAGE{
         true => {"Last Stage".into()},
         _ => {format!("Stage {}",app.stage_count)},
@@ -338,14 +338,9 @@ pub fn update_player(
     let cnv_angle = if angle > 90.0 { 90.0 - (angle - 90.0) }
     else if angle < -90.0                { -90.0 - (angle + 90.0) }
     else                                 { angle };
-    
     let cnv_rad = angle * 3.1415 / 180.0; 
-
-    if !app.is_ground && !app.is_rising{
-        app.angle = cnv_angle;
-        player_transform.rotation = Quat::from_rotation_z(cnv_rad); 
-    }
-
+    player_transform.rotation = Quat::from_rotation_z(cnv_rad);
+    
     if player_transform.scale.y > value::BLOCKSIZE{ player_transform.scale.y -= time.delta_seconds() * 40.0; }
     if player_transform.scale.x <= value::BLOCKSIZE{ player_transform.scale.x += time.delta_seconds() * 20.0; }
 
@@ -368,9 +363,10 @@ pub fn update_player(
     }
     if mouse_button_input.just_released(MouseButton::Left){
         if app.is_ground{
-           
-            //let xv = -cnv_angle;
-            let xv = -app.angle;
+            app.is_ground = false;
+            app.is_rising = true;
+            app.is_jump = true;
+            let xv = -cnv_angle;
             let jump_val = value::BLOCKSIZE - player_transform.scale.y;
             let y_val = jump_val * 0.75;
             player_velocity.y += y_val;
@@ -380,9 +376,6 @@ pub fn update_player(
             player_transform.scale.x = value::BLOCKSIZE - (jump_val * 1.0);
             app.jump_count += 1;
             jump_events.send_default();
-            app.is_ground = false;
-            app.is_rising = true;
-            app.is_jump = true;
         }
     }
 

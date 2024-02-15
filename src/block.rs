@@ -75,7 +75,7 @@ pub fn create_block(
             parent.spawn((
                 Text2dBundle {
                     text: Text::from_section(c.to_string(), TextStyle {
-                        font: asset_server.load(common::DEFAULTFONT),
+                        font: asset_server.load(assets::DEFAULTFONT),
                         font_size: 100.0,
                         color: Color::WHITE,
                     }),

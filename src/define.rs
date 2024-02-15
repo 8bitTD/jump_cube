@@ -1,5 +1,8 @@
 pub mod common{
     pub const TOOLNAME: &str = "jump_cube";
+}
+
+pub mod assets{
     pub const DEFAULTFONT: &str = "fonts/NotoSansJP-Bold.ttf";
     pub const SOUNDJUMP: &str = "sound/jump.mp3";
     pub const SOUNDLANDING: &str = "sound/landing.wav";
