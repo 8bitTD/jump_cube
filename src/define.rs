@@ -7,6 +7,7 @@ pub mod assets{
     pub const SOUNDJUMP: &str = "sound/jump.mp3";
     pub const SOUNDLANDING: &str = "sound/landing.wav";
     pub const SOUNDSIDELANDING: &str = "sound/side_landing.wav";
+    pub const SOUNDGETNUMBER: &str = "sound/get_number.wav";
     pub const BGM: &str = "bgm/dungeon.mp3";
     pub const BGMENDING: &str = "bgm/ending.mp3";
 }

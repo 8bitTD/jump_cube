@@ -28,7 +28,7 @@ pub fn spawn_system(
         source: asset_server.load(assets::BGMENDING),
         settings: PlaybackSettings{
             mode: bevy::audio::PlaybackMode::Loop,
-            volume: bevy::audio::Volume::Relative(bevy::audio::VolumeLevel::new(value::VOLUME)),
+            volume: bevy::audio::Volume::new(value::VOLUME),
             ..default()
         },
         ..default()
@@ -141,7 +141,7 @@ pub fn spawn_system(
 
 pub fn update_debug(
     mut app_state: ResMut<NextState<AppState>>,
-    keyboard_input:  Res<Input<KeyCode>>,
+    keyboard_input:  Res<ButtonInput<KeyCode>>,
 ) {
     if !value::ISDEBUG{return;}
     if keyboard_input.just_pressed(KeyCode::F2){
@@ -152,7 +152,7 @@ pub fn update_debug(
 pub fn update_player(
     app: Res<MyApp>, 
     mut app_state: ResMut<NextState<AppState>>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
 ) {
     if mouse_button_input.just_released(MouseButton::Left) && app.is_ending_end{
         app_state.set(AppState::Game);

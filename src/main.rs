@@ -24,7 +24,6 @@ fn set_exec(){
                 transparent: true,
                 decorations: true,
                 present_mode: PresentMode::AutoNoVsync,
-                fit_canvas_to_parent: true,
                 prevent_default_event_handling: true,
                 ..default()
             }),
@@ -35,7 +34,8 @@ fn set_exec(){
             level: bevy::log::Level::WARN,
             ..default()
         }))
-        .add_plugins(state::StatePlugin)
         .add_plugins(bevy_framepace::FramepacePlugin)
+        .add_plugins(state::StatePlugin)
+        
         .run();
 }
