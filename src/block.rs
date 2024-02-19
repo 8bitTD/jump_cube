@@ -20,7 +20,12 @@ pub fn create_block(
     let font = asset_server.load(assets::DEFAULTFONT);
     let mut rng = thread_rng();
     let height = 10*(stage_count*2);
-    let cvt_stage_count = (stage_count * 2) as i32;
+    let cvt_stage_count = match stage_count{
+        1 => 1,
+        2 => 1,
+        3 => 2,
+        _ => 1,
+    };
     let vl_range:Uniform<i32> = Uniform::new(-cvt_stage_count, cvt_stage_count+1);
     for x in 2..49{
         for y in 2..height{
