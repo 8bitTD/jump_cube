@@ -27,6 +27,7 @@ pub struct MyApp{
     pub is_ending_end: bool,
     pub old_velocity_y: f32,
     pub vel: Vel,
+    pub game_state_timer: f32,
 }
 impl Default for MyApp{
     fn default() -> Self{   
@@ -41,6 +42,7 @@ impl Default for MyApp{
             is_ending_end: false,
             old_velocity_y: 0.0,
             vel: Vel::default(),
+            game_state_timer: 0.0,
         }
     }
 }
@@ -58,12 +60,21 @@ pub enum AppState{
     Ending,
 }
 
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+pub enum GameState{
+    #[default]
+    In,
+    Play,
+    Out,
+}
+
 pub struct StatePlugin;
 
 impl Plugin for StatePlugin {
     fn build (&self, app: &mut App){
         app
         .init_state::<AppState>()
+        .init_state::<GameState>()
         .insert_resource(MyApp::default())
         .insert_resource(OneSecondTimer(Timer::from_seconds(1.0, TimerMode::Repeating)))
         .add_event::<game::JumpEvent>()
@@ -86,6 +97,7 @@ impl Plugin for StatePlugin {
                 game::update_play_sound,
                 game::update_reset_game,  
                 game::update_check_goal,
+                game::update_game_state,
                 game::update_camera_move,
             ).chain().run_if(in_state(AppState::Game)),
         )

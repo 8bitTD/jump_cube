@@ -539,6 +539,12 @@ pub fn update_check_goal(
     }
 }
 
+pub fn update_game_state(
+    //mut game_state: ResMut<NextState<GameState>>,
+){
+    //println!("{:?}", game_state);
+}
+
 pub fn update_reset_game(
     mut commands: Commands, 
     mut app: ResMut<MyApp>, 
