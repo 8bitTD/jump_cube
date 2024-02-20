@@ -59,6 +59,9 @@ pub struct PlayerText{
 }
 
 #[derive(Component)]
+pub struct BlackRectangle;
+
+#[derive(Component)]
 pub struct StageText;
 
 #[derive(Component)]
@@ -94,13 +97,15 @@ pub fn update_camera_move(
     q_window: Query<&Window, With<PrimaryWindow>>,
     time: Res<Time>,
 ) {
+    //if app.game_state != GameState::Play{return;}
     let (camera, mut camera_transform, camera_global_transform) = camera_query.single_mut();
-    camera_transform.translation.x += (app.player_pos.x - camera_transform.translation.x) * 0.075 * (time.delta_seconds() / value::PER60FPS);
-    camera_transform.translation.y += (app.player_pos.y - camera_transform.translation.y) * 0.075 * (time.delta_seconds() / value::PER60FPS);
     if app.is_reset_game{
         camera_transform.translation.x = value::DEFAULTCAMERAPOSX;
         camera_transform.translation.y = value::DEFAULTCAMERAPOSY;
     }
+    camera_transform.translation.x += (app.player_pos.x - camera_transform.translation.x) * 0.075 * (time.delta_seconds() / value::PER60FPS);
+    camera_transform.translation.y += (app.player_pos.y - camera_transform.translation.y) * 0.075 * (time.delta_seconds() / value::PER60FPS);
+    
     let window = q_window.single();
     if  window.cursor_position().is_none(){return;}
     let wcp = window.cursor_position().unwrap();
@@ -186,6 +191,17 @@ pub fn setup_asset(
             ..default()
         }),
         StageText,
+        ReleaseResource,
+    ));
+
+    commands.spawn((MaterialMesh2dBundle {
+        mesh: meshes.add(Rectangle::default()).into(),
+        transform: Transform::default().with_translation(Vec3::new(500.0,0.0,1000.0)).with_scale(Vec3::splat(20000.0)),
+        material: materials.add(Color::BLACK),
+        visibility: Visibility::Visible,
+        ..default()
+        },
+        BlackRectangle,
         ReleaseResource,
     ));
 
@@ -286,20 +302,20 @@ pub fn update_debug(
     keyboard_input:  Res<ButtonInput<KeyCode>>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut timer: ResMut<OneSecondTimer>,
-    mut app_state: ResMut<NextState<AppState>>,
+    //mut app_state: ResMut<NextState<AppState>>,
     time: Res<Time>,
     mut settings: ResMut<bevy_framepace::FramepaceSettings>,
     mut exit: EventWriter<bevy::app::AppExit>
 ) {
+    if app.game_state != GameState::Play{return;}
     if !value::ISDEBUG {return;}
     let (_player_velocity, mut player_transform) = player_query.single_mut();
     if keyboard_input.just_pressed(KeyCode::F2){
         app.stage_count += 1;
-        if app.stage_count > value::MAXSTAGE{app_state.set(AppState::Ending);}
-        app.is_reset_game = true;
+        app.game_state = GameState::Out;
     }
     if keyboard_input.just_pressed(KeyCode::F3){
-        app.is_reset_game = true;
+        app.game_state = GameState::Out;
     }
     if mouse_button_input.just_released(MouseButton::Right){
         player_transform.translation.x = app.mouse_pos.x;
@@ -328,9 +344,10 @@ pub fn update_check_out_of_range(
     mut app: ResMut<MyApp>, 
     player_query: Query<&Transform, With<PlayerBlock>>,
 ){
+    if app.game_state != GameState::Play{return;}
     let player_transform = player_query.single();
     if player_transform.translation.y < -1000.0{
-        app.is_reset_game = true;
+        app.game_state = GameState::Out;
     }
 }
 
@@ -341,6 +358,7 @@ pub fn update_player(
     time: Res<Time>,
     mut jump_events: EventWriter<JumpEvent>,
 ) {
+    if app.game_state != GameState::Play{return;}
     let (mut player_info, mut player_adjustment, mut player_velocity, mut player_transform) = player_query.single_mut();
     app.timer += time.delta_seconds();
     player_info.is_bend = false;
@@ -405,6 +423,7 @@ pub fn update_player(
 }
 
 pub fn update_collisions(
+    app: Res<MyApp>, 
     mut player_query: Query<(&mut PlayerInfo, &mut Adjustment, &mut Velocity, &Transform), (With<PlayerBlock>, Without<Enemy>)>,
     mut block_query: Query<(&Children, &mut BGBlock, &Transform), With<BGBlock>>,
     mut block_text_query: Query<&mut Text, (With<BGText>, Without<PlayerText>)>,
@@ -414,6 +433,7 @@ pub fn update_collisions(
     mut text_query: Query<(&mut Text, &mut PlayerText), With<PlayerText>>,
     time: Res<Time>,
 ) {
+    if app.game_state != GameState::Play {return;}
     let (mut player_info, mut player_adjustment, mut player_velocity, player_transform) = player_query.single_mut();
 
     //プレイヤーとブロックの接触
@@ -452,6 +472,7 @@ pub fn update_collisions(
 }
 
 pub fn update_play_sound(
+    app: Res<MyApp>, 
     mut commands: Commands,
     jump_sound: Res<JumpSound>,
     mut jump_events: EventReader<JumpEvent>,
@@ -462,6 +483,7 @@ pub fn update_play_sound(
     get_number_sound: Res<GetNumberSound>,
     mut get_number_events: EventReader<GetNumberEvent>,
 ) {
+    if app.game_state != GameState::Play{return;}
     if !jump_events.is_empty() {
         jump_events.clear();
         commands.spawn(AudioBundle {
@@ -516,33 +538,72 @@ pub fn update_check_goal(
     mut app: ResMut<MyApp>,
     player_query: Query<(&Velocity, &Transform), With<PlayerBlock>>,
     goal_query: Query<&Transform, With<GoalBlock>>,
-    mut app_state: ResMut<NextState<AppState>>,
     text_query: Query<&PlayerText, With<PlayerText>>,
 ){
+    if app.game_state != GameState::Play{return;}
     let (player_velocity,player_transform) = player_query.single();
     let player_text = text_query.single();
     if player_text.count != 0{return;}
     let player_size = player_transform.scale.truncate();
-    let offset = 7.5;
+    let offset = 7.0;
     let op_min = player_transform.translation.truncate() - player_size * 0.5 + offset;
     let op_max = player_transform.translation.truncate() + player_size * 0.5 - offset;
     let p_min = op_min + player_velocity.0;
     let p_max = op_max + player_velocity.0;
 
     let goal_transform = goal_query.single();
-    let g_min = goal_transform.translation.truncate() - goal_transform.scale.truncate() / 2.0;
-    let g_max = goal_transform.translation.truncate() + goal_transform.scale.truncate() / 2.0; 
+    let g_min = goal_transform.translation.truncate() - goal_transform.scale.truncate() / 2.0 + offset;
+    let g_max = goal_transform.translation.truncate() + goal_transform.scale.truncate() / 2.0 - offset; 
     if collision::is_in(p_min, p_max, g_min, g_max){
         app.stage_count += 1;
-        app.is_reset_game = true;
-        if app.stage_count > value::MAXSTAGE{app_state.set(AppState::Ending);}
+        app.game_state = GameState::Out;
     }
 }
 
 pub fn update_game_state(
-    //mut game_state: ResMut<NextState<GameState>>,
+    mut app: ResMut<MyApp>,
+    time: Res<Time>,
+    mut app_state: ResMut<NextState<AppState>>,
+    mut black_query: Query<&mut Handle<ColorMaterial>, With<BlackRectangle>>,
+    mut player_query: Query<(&mut PlayerInfo, &mut Transform, &mut Velocity), With<PlayerBlock>>,
+    mut player_text_query: Query<&mut PlayerText>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ){
-    //println!("{:?}", game_state);
+    let mut black_color = black_query.single_mut();
+    if app.game_state == GameState::In{
+        app.game_state_timer += time.delta_seconds();
+        *black_color = materials.add(Color::rgba(0.0,0.0,0.0, 1.0 - (app.game_state_timer*2.0)));
+        if app.game_state_timer >= value::FADETIME{
+            *black_color = materials.add(Color::rgba(0.0,0.0,0.0, 0.0));
+            app.game_state_timer = 0.0;
+            app.game_state = GameState::Play;
+        }
+    }
+    if app.game_state == GameState::Out{
+        app.game_state_timer += time.delta_seconds();
+        *black_color = materials.add(Color::rgba(0.0,0.0,0.0, app.game_state_timer*2.0));
+        if app.game_state_timer >= value::FADETIME{
+            *black_color = materials.add(Color::rgba(0.0,0.0,0.0, 1.0));
+            app.game_state_timer = 0.0;
+            app.game_state = GameState::In;
+            app.is_reset_game = true;
+            if app.stage_count > value::MAXSTAGE{app_state.set(AppState::Ending);}
+            //let (mut player_transform, mut player_velocity) = player_query.single_mut();
+            //player_transform.translation.x = value::DEFAULTCAMERAPOSX;
+            //player_transform.translation.y = value::DEFAULTCAMERAPOSY;
+            //player_velocity.x = 0.0;
+            //player_velocity.y = 0.0;
+        }
+    }
+    if app.is_reset_game{
+        let (mut player_info, mut player_transform, mut player_velocity) = player_query.single_mut();
+        (player_transform.translation.x, player_transform.translation.y) = (value::DEFAULTPOSX, value::DEFAULTPOSY);
+        (player_velocity.x, player_velocity.y) = (0.0, 0.0);
+        player_info.is_ground = false;
+        player_info.is_rising = false;
+        let mut player_text = player_text_query.single_mut();
+        player_text.count = 0;
+    }
 }
 
 pub fn update_reset_game(
@@ -573,11 +634,13 @@ pub fn update_reset_game(
 pub fn update_apply_velocity_player(
     mut app: ResMut<MyApp>, 
     mut player_query: Query<(&mut PlayerInfo, &Adjustment, &mut Transform, &mut Velocity), With<PlayerBlock>>,
-    mut player_text_query: Query<&mut PlayerText>,
     time: Res<Time>,
 ) {
-    let (mut player_info, player_adjustment, mut player_transform, mut player_velocity) = player_query.single_mut();    
-    let mut player_text = player_text_query.single_mut();
+    let (mut player_info, player_adjustment, mut player_transform, mut player_velocity) = player_query.single_mut();  
+    app.player_pos.x = player_transform.translation.x;
+    app.player_pos.y = player_transform.translation.y;
+
+    if app.game_state != GameState::Play{return;}
     let delta_player_velocity = **player_velocity * (time.delta_seconds() / value::PER60FPS);
     player_transform.translation.x += player_adjustment.x;
     player_transform.translation.y += player_adjustment.y;
@@ -595,14 +658,6 @@ pub fn update_apply_velocity_player(
     app.old_velocity_y = player_velocity.y;
     if player_info.is_ground{ player_velocity.x = player_velocity.x * (1.0 - time.delta_seconds() * 20.0); }
     else            { player_velocity.x = player_velocity.x * (1.0 - time.delta_seconds() *  1.0); }
-    if app.is_reset_game{
-        (player_transform.translation.x, player_transform.translation.y) = (value::DEFAULTPOSX, value::DEFAULTPOSY);
-        (player_velocity.x, player_velocity.y) = (0.0, 0.0);
-        player_info.is_ground = false;
-        player_info.is_rising = false;
-        player_text.count = 0;
-    }
-    app.player_pos.x = player_transform.translation.x;
-    app.player_pos.y = player_transform.translation.y;
+    
     if player_info.is_ground {player_info.is_rising = false;}
 }

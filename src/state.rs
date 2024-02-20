@@ -28,6 +28,7 @@ pub struct MyApp{
     pub old_velocity_y: f32,
     pub vel: Vel,
     pub game_state_timer: f32,
+    pub game_state: GameState,
 }
 impl Default for MyApp{
     fn default() -> Self{   
@@ -37,12 +38,13 @@ impl Default for MyApp{
             jump_count: 0,
             timer: 0.0,
             text_stage_alpha: value::DEFAULTTEXTSTAGEALPHA,
-            player_pos: Pos::default(),
+            player_pos: Pos{x: value::DEFAULTCAMERAPOSX, y: value::DEFAULTCAMERAPOSY},
             mouse_pos: Pos::default(),
             is_ending_end: false,
             old_velocity_y: 0.0,
             vel: Vel::default(),
             game_state_timer: 0.0,
+            game_state: GameState::In,
         }
     }
 }
@@ -60,7 +62,7 @@ pub enum AppState{
     Ending,
 }
 
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Default, Resource)]
 pub enum GameState{
     #[default]
     In,
@@ -74,7 +76,6 @@ impl Plugin for StatePlugin {
     fn build (&self, app: &mut App){
         app
         .init_state::<AppState>()
-        .init_state::<GameState>()
         .insert_resource(MyApp::default())
         .insert_resource(OneSecondTimer(Timer::from_seconds(1.0, TimerMode::Repeating)))
         .add_event::<game::JumpEvent>()
@@ -91,14 +92,14 @@ impl Plugin for StatePlugin {
                 game::update_goal_animation,
 
                 game::update_collisions,
-                
+                game::update_check_goal,
+                game::update_game_state,
                 game::update_apply_velocity_player,
 
                 game::update_play_sound,
-                game::update_reset_game,  
-                game::update_check_goal,
-                game::update_game_state,
                 game::update_camera_move,
+                game::update_reset_game,
+                
             ).chain().run_if(in_state(AppState::Game)),
         )
         .add_systems(OnExit(AppState::Game), despawn)
