@@ -265,7 +265,7 @@ pub fn update_fade_stage_text(
 
 pub fn update_goal_animation(
     mut text_query: Query<(&mut Text, &mut Transform), With<GoalText>>,
-    player_text_query: Query<&PlayerText, With<PlayerText>>,
+    player_text_query: Query<&PlayerText>,
     mut goal_query: Query<&mut Handle<ColorMaterial>, With<GoalBlock>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     time: Res<Time>
@@ -566,7 +566,7 @@ pub fn update_game_state(
     mut app_state: ResMut<NextState<AppState>>,
     mut black_query: Query<&mut Handle<ColorMaterial>, With<BlackRectangle>>,
     mut player_query: Query<(&mut PlayerInfo, &mut Transform, &mut Velocity), With<PlayerBlock>>,
-    mut player_text_query: Query<&mut PlayerText>,
+    mut player_text_query: Query<(&mut Text, &mut PlayerText), With<PlayerText>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ){
     let mut black_color = black_query.single_mut();
@@ -601,8 +601,9 @@ pub fn update_game_state(
         (player_velocity.x, player_velocity.y) = (0.0, 0.0);
         player_info.is_ground = false;
         player_info.is_rising = false;
-        let mut player_text = player_text_query.single_mut();
+        let (mut text, mut player_text) = player_text_query.single_mut();
         player_text.count = 0;
+        text.sections[0].value = format!("{}", player_text.count);
     }
 }
 
