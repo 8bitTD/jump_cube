@@ -24,7 +24,7 @@ fn set_exec(){
                 transparent: true,
                 decorations: true,
                 present_mode: PresentMode::AutoNoVsync,
-                prevent_default_event_handling: true,
+                prevent_default_event_handling: false,
                 ..default()
             }),
             exit_condition: bevy::window::ExitCondition::OnAllClosed,
@@ -36,6 +36,5 @@ fn set_exec(){
         }))
         .add_plugins(bevy_framepace::FramepacePlugin)
         .add_plugins(state::StatePlugin)
-        
         .run();
 }

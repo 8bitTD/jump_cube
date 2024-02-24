@@ -28,5 +28,5 @@ pub mod value{
     //pub const VOLUME: f32 = 0.00;
     pub const ISDEBUG: bool = false;
     pub const PER60FPS: f32 = 0.016;
-    pub const FADETIME: f32 = 0.5;
+    pub const FADETIME: f32 = 1.0;
 }

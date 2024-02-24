@@ -47,6 +47,7 @@ pub fn check_left_bottom_collide(op_min: Vec2, op_max: Vec2, p_vec: Vec2, b_min:
     return (res_x, res_y);
 }
 
+
 pub fn check_right_bottom_collide(op_min: Vec2, op_max: Vec2, p_vec: Vec2, b_min: Vec2, b_max: Vec2) -> (f32, f32){//pの右下チェック
     let (mut res_x, mut res_y) = (0.0, 0.0);
     let p_min = op_min + p_vec;
@@ -117,7 +118,7 @@ pub fn check_for_collisions_player(
                 if !*is_ground {
                     *is_ground = true;
                 }
-                count_up(block_text_query, children, block, hit_count);
+                edit_block_number(block_text_query, children, block, hit_count);
             }
         }
         
@@ -127,7 +128,7 @@ pub fn check_for_collisions_player(
             *is_top_hit = true;
             player_adjustment.y += ry;
             is_hit = true;
-            count_up(block_text_query, children, block, hit_count);
+            edit_block_number(block_text_query, children, block, hit_count);
         }
         let p_pos = Vec2::new(p_min.x, (p_min.y+p_max.y)*0.5);//pの左チェック
         let rx = check_left_collide(p_pos, b_min, b_max);
@@ -139,7 +140,7 @@ pub fn check_for_collisions_player(
             }
             *is_side_hit = true;
             is_hit = true;
-            count_up(block_text_query, children, block, hit_count);
+            edit_block_number(block_text_query, children, block, hit_count);
         }
         let p_pos = Vec2::new(p_max.x, (p_min.y+p_max.y)*0.5);//pの右チェック
         let rx = check_right_collide(p_pos, b_min, b_max);
@@ -151,7 +152,7 @@ pub fn check_for_collisions_player(
             }
             *is_side_hit = true;
             is_hit = true;
-            count_up(block_text_query, children, block, hit_count);
+            edit_block_number(block_text_query, children, block, hit_count);
         }
     }
     
@@ -168,10 +169,10 @@ pub fn check_for_collisions_player(
                 player_velocity_delta.x = -player_velocity_delta.x;
             }
             *is_side_hit = true;
-            count_up(block_text_query, children, block, hit_count);
+            edit_block_number(block_text_query, children, block, hit_count);
         }
         if ry != 0.0{
-            count_up(block_text_query, children, block, hit_count);
+            edit_block_number(block_text_query, children, block, hit_count);
         }
         if !is_rising {
             player_adjustment.y += ry;
@@ -185,10 +186,10 @@ pub fn check_for_collisions_player(
                 player_velocity_delta.x = -player_velocity_delta.x;
             }
             *is_side_hit = true;
-            count_up(block_text_query, children, block, hit_count);
+            edit_block_number(block_text_query, children, block, hit_count);
         }
         if ry != 0.0{
-            count_up(block_text_query, children, block, hit_count);
+            edit_block_number(block_text_query, children, block, hit_count);
         }
         if !is_rising {
             player_adjustment.y += ry;
@@ -201,12 +202,12 @@ pub fn check_for_collisions_player(
                 player_velocity_delta.x = -player_velocity_delta.x;
             }
             *is_side_hit = true;
-            count_up(block_text_query, children, block, hit_count);
+            edit_block_number(block_text_query, children, block, hit_count);
         }
         if ry != 0.0{
             player_adjustment.y += ry;
             *is_top_hit = true;
-            count_up(block_text_query, children, block, hit_count);
+            edit_block_number(block_text_query, children, block, hit_count);
         }
         let (rx, ry) = check_right_top_collide(op_min, op_max,*player_velocity_delta+*player_adjustment, b_min, b_max);
         if rx != 0.0{
@@ -216,17 +217,17 @@ pub fn check_for_collisions_player(
                 player_velocity_delta.x = -player_velocity_delta.x;
             }
             *is_side_hit = true;
-            count_up(block_text_query, children, block, hit_count);
+            edit_block_number(block_text_query, children, block, hit_count);
         }
         if ry != 0.0{ 
             player_adjustment.y += ry;
             *is_top_hit = true;
-            count_up(block_text_query, children, block, hit_count);
+            edit_block_number(block_text_query, children, block, hit_count);
         }
     }
 }
 
-fn count_up( block_text_query: &mut Query<&mut Text, (With<BGText>, Without<PlayerText>)>, children: &Children, block: &mut BGBlock,  hit_count: &mut i32){
+fn edit_block_number( block_text_query: &mut Query<&mut Text, (With<BGText>, Without<PlayerText>)>, children: &Children, block: &mut BGBlock,  hit_count: &mut i32){
     if block.count == 0{return;}
     *hit_count = block.count;
     block.count = 0;

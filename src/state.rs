@@ -18,12 +18,14 @@ pub struct Vel{
 #[derive(Resource)] 
 pub struct MyApp{
     pub is_reset_game: bool,
+    pub is_clear: bool,
     pub stage_count: u32,
     pub jump_count: usize,
     pub timer: f32,
     pub text_stage_alpha: f32,
     pub player_pos: Pos,
     pub mouse_pos: Pos,
+    pub goal_pos: Pos,
     pub is_ending_end: bool,
     pub old_velocity_y: f32,
     pub vel: Vel,
@@ -34,12 +36,14 @@ impl Default for MyApp{
     fn default() -> Self{   
         MyApp{
             is_reset_game: false,
+            is_clear: false,
             stage_count: 1,
             jump_count: 0,
             timer: 0.0,
             text_stage_alpha: value::DEFAULTTEXTSTAGEALPHA,
             player_pos: Pos{x: value::DEFAULTCAMERAPOSX, y: value::DEFAULTCAMERAPOSY},
             mouse_pos: Pos::default(),
+            goal_pos: Pos::default(),
             is_ending_end: false,
             old_velocity_y: 0.0,
             vel: Vel::default(),
@@ -97,9 +101,8 @@ impl Plugin for StatePlugin {
                 game::update_apply_velocity_player,
 
                 game::update_play_sound,
-                game::update_camera_move,
                 game::update_reset_game,
-                
+                game::update_camera_move,
             ).chain().run_if(in_state(AppState::Game)),
         )
         .add_systems(OnExit(AppState::Game), despawn)

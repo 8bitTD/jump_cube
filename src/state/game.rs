@@ -99,12 +99,18 @@ pub fn update_camera_move(
 ) {
     //if app.game_state != GameState::Play{return;}
     let (camera, mut camera_transform, camera_global_transform) = camera_query.single_mut();
-    if app.is_reset_game{
-        camera_transform.translation.x = value::DEFAULTCAMERAPOSX;
-        camera_transform.translation.y = value::DEFAULTCAMERAPOSY;
+    if app.game_state == GameState::In{
+        camera_transform.translation.x = app.goal_pos.x;
+        camera_transform.translation.y = app.goal_pos.y;
+    }else{
+        if app.is_reset_game{
+            camera_transform.translation.x = value::DEFAULTCAMERAPOSX;
+            camera_transform.translation.y = value::DEFAULTCAMERAPOSY;
+        }
+        camera_transform.translation.x += (app.player_pos.x - camera_transform.translation.x) * 0.075 * (time.delta_seconds() / value::PER60FPS);
+        camera_transform.translation.y += (app.player_pos.y - camera_transform.translation.y) * 0.075 * (time.delta_seconds() / value::PER60FPS);
     }
-    camera_transform.translation.x += (app.player_pos.x - camera_transform.translation.x) * 0.075 * (time.delta_seconds() / value::PER60FPS);
-    camera_transform.translation.y += (app.player_pos.y - camera_transform.translation.y) * 0.075 * (time.delta_seconds() / value::PER60FPS);
+    
     
     let window = q_window.single();
     if  window.cursor_position().is_none(){return;}
@@ -123,7 +129,9 @@ pub fn setup_asset(
     mut settings: ResMut<bevy_framepace::FramepaceSettings>,
     asset_server: Res<AssetServer>,
 ) {
+    let tmp_is_clear = app.is_clear;
     if app.stage_count == 1{ *app = MyApp::default(); }
+    app.is_clear = tmp_is_clear;
     commands.insert_resource(ClearColor(Color::rgb(0.15, 0.15, 0.15)));
     settings.limiter = bevy_framepace::Limiter::Off;
     let mut cam = Camera2dBundle::default();
@@ -205,6 +213,11 @@ pub fn setup_asset(
         ReleaseResource,
     ));
 
+    let number_visibility = match app.is_clear{
+        true => { Visibility::Visible },
+        _ =>    { Visibility::Hidden },
+    };
+
     commands.spawn((MaterialMesh2dBundle {
         mesh: meshes.add(Rectangle::default()).into(),
         transform: Transform::default().with_translation(Vec3::new(value::DEFAULTPOSX,value::DEFAULTPOSY,5.0)).with_scale(Vec3::splat(20.0)),
@@ -232,13 +245,39 @@ pub fn setup_asset(
                 color: Color::BLACK,
             }),
             transform: Transform::default().with_translation(Vec3::new(0.0,0.05,10.0)).with_scale(Vec3::splat(0.0080)),
+            visibility: number_visibility,
             ..default()
             },
             PlayerText{count: 0},
         ));
+
+        if !app.is_clear{
+            parent.spawn(MaterialMesh2dBundle {//左目
+                mesh: meshes.add(Circle::default()).into(),
+                transform: Transform::default().with_translation(Vec3::new(-0.2,0.15,2.0)).with_scale(Vec3::splat(0.15)),
+                material: materials.add(Color::BLACK),
+                ..default()
+            });    
+            parent.spawn(MaterialMesh2dBundle {//右目
+                mesh: meshes.add(Circle::default()).into(),
+                transform: Transform::default().with_translation(Vec3::new(0.2,0.15,2.0)).with_scale(Vec3::splat(0.15)),
+                material: materials.add(Color::BLACK),
+                ..default()
+            });
+            parent.spawn(MaterialMesh2dBundle {//口
+                mesh: meshes.add(Triangle2d::new(
+                    Vec2::Y * 0.25,
+                    Vec2::new(-0.5, -0.5),
+                    Vec2::new(0.5, -0.5),
+                )).into(),
+                transform: Transform::default().with_translation(Vec3::new(0.0,-0.15,2.0)).with_scale(Vec3::splat(0.3)),
+                material: materials.add(Color::BLACK),
+                ..default()
+            }); 
+        }
     });
 
-    create_block(app.stage_count, commands, meshes, materials, asset_server);
+    create_block(app, commands, meshes, materials, asset_server);
 }
 
 pub fn update_fade_stage_text(
@@ -447,7 +486,9 @@ pub fn update_collisions(
     let player_size = Vec2::new(value::BLOCKSIZE, player_transform.scale.y);
     let offset = 2.0;
     let op_min = player_transform.translation.truncate() - player_size * 0.5 + (offset * 0.5);
+    //let op_min = player_transform.translation.truncate() - player_size * 0.5;
     let op_max = player_transform.translation.truncate() + player_size * 0.5 - (offset * 1.5);
+    //let op_max = player_transform.translation.truncate() + player_size * 0.5;
     let mut player_velocity_delta = **player_velocity * (time.delta_seconds() / value::PER60FPS) * 1.0;
     let p_min = op_min + player_velocity_delta;
     let p_max = op_max + player_velocity_delta;
@@ -552,8 +593,8 @@ pub fn update_check_goal(
     let p_max = op_max + player_velocity.0;
 
     let goal_transform = goal_query.single();
-    let g_min = goal_transform.translation.truncate() - goal_transform.scale.truncate() / 2.0 + offset;
-    let g_max = goal_transform.translation.truncate() + goal_transform.scale.truncate() / 2.0 - offset; 
+    let g_min = goal_transform.translation.truncate() - goal_transform.scale.truncate() / 2.0;
+    let g_max = goal_transform.translation.truncate() + goal_transform.scale.truncate() / 2.0; 
     if collision::is_in(p_min, p_max, g_min, g_max){
         app.stage_count += 1;
         app.game_state = GameState::Out;
@@ -572,7 +613,7 @@ pub fn update_game_state(
     let mut black_color = black_query.single_mut();
     if app.game_state == GameState::In{
         app.game_state_timer += time.delta_seconds();
-        *black_color = materials.add(Color::rgba(0.0,0.0,0.0, 1.0 - (app.game_state_timer*2.0)));
+        *black_color = materials.add(Color::rgba(0.0,0.0,0.0, 1.0 - (app.game_state_timer*1.0)));
         if app.game_state_timer >= value::FADETIME{
             *black_color = materials.add(Color::rgba(0.0,0.0,0.0, 0.0));
             app.game_state_timer = 0.0;
@@ -581,7 +622,7 @@ pub fn update_game_state(
     }
     if app.game_state == GameState::Out{
         app.game_state_timer += time.delta_seconds();
-        *black_color = materials.add(Color::rgba(0.0,0.0,0.0, app.game_state_timer*2.0));
+        *black_color = materials.add(Color::rgba(0.0,0.0,0.0, app.game_state_timer*1.0));
         if app.game_state_timer >= value::FADETIME{
             *black_color = materials.add(Color::rgba(0.0,0.0,0.0, 1.0));
             app.game_state_timer = 0.0;
@@ -628,8 +669,8 @@ pub fn update_reset_game(
     for entity in &goal_query {
         commands.entity(entity).despawn_recursive();
     }
-    create_block(app.stage_count, commands, meshes, materials, asset_server);
     app.is_reset_game = false;
+    create_block(app, commands, meshes, materials, asset_server);
 }
 
 pub fn update_apply_velocity_player(

@@ -11,7 +11,7 @@ use super::state::game::*;
 use super::define::*;
 
 pub fn create_block(
-    stage_count: u32,
+    mut app: ResMut<MyApp>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -19,8 +19,8 @@ pub fn create_block(
 ){
     let font = asset_server.load(assets::DEFAULTFONT);
     let mut rng = thread_rng();
-    let height = 10*(stage_count*2);
-    let cvt_stage_count = match stage_count{
+    let height = 10*(app.stage_count*2);
+    let cvt_stage_count = match app.stage_count{
         1 => 1,
         2 => 1,
         3 => 2,
@@ -30,13 +30,16 @@ pub fn create_block(
     for x in 2..49{
         for y in 2..height{
             let v: u32 = rng.gen();
-            if v % (2+(stage_count*2)) != 0{continue;}
+            if v % (2+(app.stage_count*2)) != 0{continue;}
             let xx = x as f32;
             let yy = y as f32;
 
             
             let mut rng = rand::thread_rng();
-            let vl = vl_range.sample(&mut rng);
+            let vl = match app.is_clear{
+                true => {vl_range.sample(&mut rng)},
+                _ =>    {0},
+            };
 
             commands.spawn((
                 MaterialMesh2dBundle {
@@ -197,15 +200,21 @@ pub fn create_block(
     let range = Uniform::new(2,49);
     let mut rng = rand::thread_rng();
     let x = range.sample(&mut rng);
-    let goal_or_next = match stage_count == value::MAXSTAGE{
+    let goal_or_next = match app.stage_count == value::MAXSTAGE{
         true => {"GOAL!"},
         _ => {"NEXT!"},
     };
     let gm = GoalMarker{color: Color::rgb(0.0, 1.0, 0.0)};
+    app.goal_pos.x = x as f32 * 20.0;
+    app.goal_pos.y = height as f32 * 20.0;
+    let number_visibility = match app.is_clear{
+        true => { Visibility::Visible },
+        _ =>    { Visibility::Hidden },
+    };
     commands.spawn((
         MaterialMesh2dBundle {
         mesh: meshes.add(Rectangle::default()).into(),
-        transform: Transform::default().with_translation(Vec3::new(x as f32*20.0, height as f32 * 20.0,0.0)).with_scale(Vec3::splat(20.0)),
+        transform: Transform::default().with_translation(Vec3::new(app.goal_pos.x, app.goal_pos.y,0.0)).with_scale(Vec3::splat(20.0)),
         material: materials.add(gm.color.clone()),
         ..default()
         },
@@ -227,6 +236,7 @@ pub fn create_block(
                 color: Color::GRAY,
             }),
             transform: Transform::default().with_translation(Vec3::new(0.0,0.05,10.0)).with_scale(Vec3::splat(0.0090)),
+            visibility: number_visibility,
             ..default()
             },
         ));

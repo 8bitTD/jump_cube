@@ -23,6 +23,7 @@ pub fn spawn_system(
     asset_server: Res<AssetServer>,
 ) {
     app.stage_count = 1;
+    app.is_clear = true;
 
     commands.spawn((AudioBundle {
         source: asset_server.load(assets::BGMENDING),
