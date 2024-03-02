@@ -73,7 +73,11 @@ pub fn create_block(
     }
         
     let vl = 0;
-    for i in 2..50{//下面ブロック
+    let sb = match app.is_clear{
+        true => {2},
+        _ => {1}
+    };
+    for i in sb..50{//下面ブロック
         let v = i as f32;
         commands.spawn((
             MaterialMesh2dBundle {

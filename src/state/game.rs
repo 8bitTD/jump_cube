@@ -46,10 +46,11 @@ pub struct PlayerInfo{
     pub is_block_hit: bool,
     pub is_bend: bool,
     pub angle: f32,
+    pub air_delta: f32,
 }
 impl Default for PlayerInfo{
     fn default() -> PlayerInfo{
-        PlayerInfo { is_ground: false, is_rising: false, is_block_hit: false, is_bend: false, angle: 0.0 }
+        PlayerInfo { is_ground: false, is_rising: false, is_block_hit: false, is_bend: false, angle: 0.0, air_delta: 0.0}
     }
 }
 
@@ -385,7 +386,7 @@ pub fn update_check_out_of_range(
 ){
     if app.game_state != GameState::Play{return;}
     let player_transform = player_query.single();
-    if player_transform.translation.y < -1000.0{
+    if player_transform.translation.y < value::RESETRANGEY{
         app.game_state = GameState::Out;
     }
 }
@@ -486,14 +487,12 @@ pub fn update_collisions(
     let player_size = Vec2::new(value::BLOCKSIZE, player_transform.scale.y);
     let offset = 2.0;
     let op_min = player_transform.translation.truncate() - player_size * 0.5 + (offset * 0.5);
-    //let op_min = player_transform.translation.truncate() - player_size * 0.5;
     let op_max = player_transform.translation.truncate() + player_size * 0.5 - (offset * 1.5);
-    //let op_max = player_transform.translation.truncate() + player_size * 0.5;
     let mut player_velocity_delta = **player_velocity * (time.delta_seconds() / value::PER60FPS) * 1.0;
     let p_min = op_min + player_velocity_delta;
     let p_max = op_max + player_velocity_delta;
 
-    collision::check_for_collisions_player(&mut hit_count,&mut is_hit_side,&mut is_hit_top,is_rising,&mut is_ground,&mut block_query, &mut block_text_query, &mut player_adjustment,&mut player_velocity,&mut player_velocity_delta,p_min, p_max,op_min,op_max);
+    collision::check_for_collisions_player( &mut hit_count,&mut is_hit_side,&mut is_hit_top,is_rising,&mut is_ground,&mut block_query, &mut block_text_query, &mut player_adjustment,&mut player_velocity,&mut player_velocity_delta,p_min, p_max,op_min,op_max, player_info.air_delta);
     
     if hit_count != 0{
         let (mut text, mut player_text) = text_query.single_mut();
@@ -691,6 +690,9 @@ pub fn update_apply_velocity_player(
     player_transform.translation.x += app.vel.x * time.delta_seconds() * 10.0;
     player_transform.translation.y += app.vel.y * time.delta_seconds() * 10.0;
 
+    app.player_pos.x = player_transform.translation.x;
+    app.player_pos.y = player_transform.translation.y;
+
     if player_adjustment.y > 0.0 { player_velocity.y = 0.0; }
 
     app.vel.x = app.vel.x * (1.0 - time.delta_seconds() * 20.0);
@@ -698,8 +700,13 @@ pub fn update_apply_velocity_player(
 
     if app.old_velocity_y >= 0.0 && player_velocity.y < 0.0 { player_info.is_rising = false; }
     app.old_velocity_y = player_velocity.y;
-    if player_info.is_ground{ player_velocity.x = player_velocity.x * (1.0 - time.delta_seconds() * 20.0); }
-    else            { player_velocity.x = player_velocity.x * (1.0 - time.delta_seconds() *  1.0); }
+    if player_info.is_ground{ 
+        player_velocity.x = player_velocity.x * (1.0 - time.delta_seconds() * 20.0); 
+        player_info.air_delta = 0.0;
+    }else { 
+        player_velocity.x = player_velocity.x * (1.0 - time.delta_seconds() *  1.0); 
+        player_info.air_delta += time.delta_seconds();
+    }
     
     if player_info.is_ground {player_info.is_rising = false;}
 }

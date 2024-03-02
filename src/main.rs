@@ -1,4 +1,4 @@
-#![cfg_attr(not(release_assertions), windows_subsystem = "windows")]
+//#![cfg_attr(not(release_assertions), windows_subsystem = "windows")]
 use bevy::{
     prelude::*,
     window::*,
