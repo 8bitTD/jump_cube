@@ -127,14 +127,12 @@ pub fn setup_asset(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut settings: ResMut<bevy_framepace::FramepaceSettings>,
     asset_server: Res<AssetServer>,
 ) {
     let tmp_is_clear = app.is_clear;
     if app.stage_count == 1{ *app = MyApp::default(); }
     app.is_clear = tmp_is_clear;
     commands.insert_resource(ClearColor(Color::rgb(0.15, 0.15, 0.15)));
-    settings.limiter = bevy_framepace::Limiter::Off;
     let mut cam = Camera2dBundle::default();
     cam.transform = Transform::from_xyz(500.0, 0.0, 1.0);
     commands.spawn((cam, ReleaseResource, CameraMarker));
@@ -344,7 +342,6 @@ pub fn update_debug(
     mut timer: ResMut<OneSecondTimer>,
     //mut app_state: ResMut<NextState<AppState>>,
     time: Res<Time>,
-    mut settings: ResMut<bevy_framepace::FramepaceSettings>,
     mut exit: EventWriter<bevy::app::AppExit>
 ) {
     if app.game_state != GameState::Play{return;}
@@ -360,17 +357,6 @@ pub fn update_debug(
     if mouse_button_input.just_released(MouseButton::Right){
         player_transform.translation.x = app.mouse_pos.x;
         player_transform.translation.y = app.mouse_pos.y;
-    }
-    if keyboard_input.just_pressed(KeyCode::Digit1){
-        settings.limiter = bevy_framepace::Limiter::Off;
-    }
-    if keyboard_input.just_pressed(KeyCode::Digit2){
-        settings.limiter = bevy_framepace::Limiter::from_framerate(60.0);
-    }
-    if keyboard_input.just_pressed(KeyCode::Digit3){
-        settings.limiter = bevy_framepace::Limiter::from_framerate(30.0);
-    }if keyboard_input.just_pressed(KeyCode::Digit4){
-        settings.limiter = bevy_framepace::Limiter::from_framerate(15.0);
     }
     if keyboard_input.just_pressed(KeyCode::Escape){
         exit.send(bevy::app::AppExit);

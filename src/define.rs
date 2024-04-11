@@ -13,8 +13,8 @@ pub mod assets{
 }
 
 pub mod value{
-    //pub const DEFAULTWINDOWPOSX: i32 = -1220;
-    pub const DEFAULTWINDOWPOSX: i32 = 450;
+    pub const DEFAULTWINDOWPOSX: i32 = -1220;
+    //pub const DEFAULTWINDOWPOSX: i32 = 450;
     pub const DEFAULTPOSX: f32 = 500.0;
     pub const DEFAULTPOSY: f32 = 19.0;
     pub const MAXSPEED: f32 = 7.5;
@@ -26,7 +26,7 @@ pub mod value{
     pub const DEFAULTCAMERAPOSY: f32 = 0.0;
     pub const VOLUME: f32 = 0.05;
     //pub const VOLUME: f32 = 0.00;
-    pub const ISDEBUG: bool = false;
+    pub const ISDEBUG: bool = true;
     pub const PER60FPS: f32 = 0.016;
     pub const FADETIME: f32 = 1.0;
     pub const RESETRANGEY: f32 = -600.0;

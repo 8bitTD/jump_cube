@@ -1,4 +1,4 @@
-#![cfg_attr(not(release_assertions), windows_subsystem = "windows")]
+//#![cfg_attr(not(release_assertions), windows_subsystem = "windows")]
 use bevy::{
     prelude::*,
     window::*,
@@ -34,7 +34,7 @@ fn set_exec(){
             level: bevy::log::Level::WARN,
             ..default()
         }))
-        .add_plugins(bevy_framepace::FramepacePlugin)
         .add_plugins(state::StatePlugin)
+        
         .run();
 }
