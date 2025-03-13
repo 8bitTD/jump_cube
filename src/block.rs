@@ -4,8 +4,8 @@ use bevy::{
     sprite::MeshMaterial2d,
     color::palettes::basic,
 };
-use rand::Rng;
-use rand::distr::{Distribution, Uniform};
+use rand::{thread_rng, Rng};
+use rand::distributions::{Distribution, Uniform};
 
 use super::state::*;
 use super::state::game::*;
@@ -22,7 +22,7 @@ pub fn create_block(
         font: asset_server.load(assets::DEFAULTFONT),
         ..default()
     };
-    let mut rng = rand::rng();
+    let mut rng = thread_rng();
     let height = 10*(app.stage_count*2);
     let cvt_stage_count = match app.stage_count{
         1 => 1,
@@ -31,16 +31,16 @@ pub fn create_block(
         _ => 1,
     };
     let block_color = Color::srgb(value::DARKBLOCKCOLOR, value::DARKBLOCKCOLOR,value::DARKBLOCKCOLOR);
-    let vl_range:Uniform<i32> = Uniform::new(-cvt_stage_count, cvt_stage_count+1).unwrap();
+    let vl_range:Uniform<i32> = Uniform::new(-cvt_stage_count, cvt_stage_count+1);
     for x in 2..49{
         for y in 2..height{
-            let v: u32 = rng.random();
+            let v: u32 = rng.gen();
             if v % (2+(app.stage_count*2)) != 0{continue;}
             let xx = x as f32;
             let yy = y as f32;
 
             
-            let mut rng = rand::rng();
+            let mut rng = rand::thread_rng();
             let vl = match app.is_clear{
                 true => {vl_range.sample(&mut rng)},
                 _ =>    {0},
@@ -183,8 +183,8 @@ pub fn create_block(
         });
     }
 
-    let range = Uniform::new(2,49).unwrap();
-    let mut rng = rand::rng();
+    let range = Uniform::new(2,49);
+    let mut rng = rand::thread_rng();
     let x = range.sample(&mut rng);
     let goal_or_next = match app.stage_count == value::MAXSTAGE{
         true => {"GOAL!"},
