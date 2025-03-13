@@ -87,7 +87,7 @@ pub fn check_for_collisions_player(
     is_rising: bool,
     is_ground: &mut bool,
     block_query: &mut Query<(&Children, &mut BGBlock, &Transform), With<state::game::BGBlock>>,
-    block_text_query: &mut Query<&mut Text, (With<BGText>, Without<PlayerText>)>,
+    block_text_query: &mut Query<&mut Text2d, (With<BGText>, Without<PlayerText>)>,
     player_adjustment: &mut Vec2,
     player_velocity: &mut Vec2,
     player_velocity_delta: &mut Vec2,
@@ -227,11 +227,14 @@ pub fn check_for_collisions_player(
     }
 }
 
-fn edit_block_number( block_text_query: &mut Query<&mut Text, (With<BGText>, Without<PlayerText>)>, children: &Children, block: &mut BGBlock,  hit_count: &mut i32){
+fn edit_block_number( block_text_query: &mut Query<&mut Text2d, (With<BGText>, Without<PlayerText>)>, children: &Children, block: &mut BGBlock,  hit_count: &mut i32){
     if block.count == 0{return;}
     *hit_count = block.count;
     block.count = 0;
     for &c in children.iter(){
-        if let Ok(mut text) = block_text_query.get_mut(c) { text.sections[0].value = "".into(); }
+        if let Ok(mut text) = block_text_query.get_mut(c) { 
+            //text.sections[0].value = "".into(); 
+            text.0 = "".into();
+        }
     }
 }

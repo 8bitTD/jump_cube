@@ -1,7 +1,10 @@
 use bevy::{
     prelude::*,
-    sprite::MaterialMesh2dBundle,
     window::PrimaryWindow,
+    sprite::MeshMaterial2d,
+    color::palettes::basic,
+    color::palettes::css,
+    audio,
 };
 
 use super::collision;
@@ -108,16 +111,15 @@ pub fn update_camera_move(
             camera_transform.translation.x = value::DEFAULTCAMERAPOSX;
             camera_transform.translation.y = value::DEFAULTCAMERAPOSY;
         }
-        camera_transform.translation.x += (app.player_pos.x - camera_transform.translation.x) * 0.075 * (time.delta_seconds() / value::PER60FPS);
-        camera_transform.translation.y += (app.player_pos.y - camera_transform.translation.y) * 0.075 * (time.delta_seconds() / value::PER60FPS);
+        camera_transform.translation.x += (app.player_pos.x - camera_transform.translation.x) * 0.075 * (time.delta_secs() / value::PER60FPS);
+        camera_transform.translation.y += (app.player_pos.y - camera_transform.translation.y) * 0.075 * (time.delta_secs() / value::PER60FPS);
     }
-    
-    
+
     let window = q_window.single();
     if  window.cursor_position().is_none(){return;}
     let wcp = window.cursor_position().unwrap();
     let res = camera.viewport_to_world(camera_global_transform, wcp).map(|ray| ray.origin.truncate());
-    if res.is_none(){ return; }
+    if res.is_err(){ return; }
     app.mouse_pos.x = res.unwrap().x;
     app.mouse_pos.y = res.unwrap().y;
 }
@@ -132,20 +134,21 @@ pub fn setup_asset(
     let tmp_is_clear = app.is_clear;
     if app.stage_count == 1{ *app = MyApp::default(); }
     app.is_clear = tmp_is_clear;
-    commands.insert_resource(ClearColor(Color::rgb(0.15, 0.15, 0.15)));
-    let mut cam = Camera2dBundle::default();
-    cam.transform = Transform::from_xyz(500.0, 0.0, 1.0);
-    commands.spawn((cam, ReleaseResource, CameraMarker));
-    
-    commands.spawn((AudioBundle {
-        source: asset_server.load(assets::BGM),
-        settings: PlaybackSettings{
-            mode: bevy::audio::PlaybackMode::Loop,
-            volume: bevy::audio::Volume::new(value::VOLUME),
-            ..default()
-        },
+    commands.insert_resource(ClearColor(Color::srgb(0.15, 0.15, 0.15)));
+    commands.spawn((
+        Camera2d::default(),
+        Transform::from_xyz(500.0, 0.0, 1.0),
+        ReleaseResource, 
+        CameraMarker
+    ));
+    let playback_settings = PlaybackSettings {
+        mode: { audio::PlaybackMode::Loop },
+        volume: audio::Volume::new(value::VOLUME),
         ..default()
-        },
+    };
+    commands.spawn((
+        AudioPlayer::new(asset_server.load(assets::BGM)),
+        playback_settings,
         ReleaseResource
     ));
 
@@ -154,60 +157,52 @@ pub fn setup_asset(
     commands.insert_resource(SideLandingSound(asset_server.load(assets::SOUNDSIDELANDING)));
     commands.insert_resource(GetNumberSound(asset_server.load(assets::SOUNDGETNUMBER)));
 
-    let font = asset_server.load(assets::DEFAULTFONT);
-    let text = match app.stage_count == value::MAXSTAGE{
+    let state_text = match app.stage_count == value::MAXSTAGE{
         true => {"Last Stage".into()},
         _ => {format!("Stage {}",app.stage_count)},
     };
 
     commands.spawn((
-        TextBundle::from_section(
-            text,
-            TextStyle {
-                font: font.clone(),
-                font_size: 100.0,
-                ..default()
-            },
-        )        
-        .with_style(Style {
+        Text::new(state_text),
+        TextFont {
+            font: asset_server.load(assets::DEFAULTFONT),
+            font_size: 100.0,
+            ..default()
+        },
+        Node {
             position_type: PositionType::Relative,
             align_self: AlignSelf::Center,
             justify_self: JustifySelf::Center,
             top: Val::Px(-150.0),
             ..default()
-        }),
+        },
         StageText,
         ReleaseResource,
     ));
 
     commands.spawn((
-        TextBundle::from_section(
-            format!("(Total {} Stages)", value::MAXSTAGE),
-            TextStyle {
-                font: font.clone(),
-                font_size: 50.0,
-                ..default()
-            },
-        )        
-        .with_style(Style {
+        Text::new(format!("(Total {} Stages)", value::MAXSTAGE)),
+        TextFont {
+            font: asset_server.load(assets::DEFAULTFONT),
+            font_size: 50.0,
+            ..default()
+        },
+        Node {
             position_type: PositionType::Relative,
             align_self: AlignSelf::Center,
             justify_self: JustifySelf::Center,
-            top: Val::Px(-75.0),
-            //right: Val::Px(5.0),
+            top: Val::Px(-55.0),
             ..default()
-        }),
+        },
         StageText,
         ReleaseResource,
     ));
 
-    commands.spawn((MaterialMesh2dBundle {
-        mesh: meshes.add(Rectangle::default()).into(),
-        transform: Transform::default().with_translation(Vec3::new(500.0,0.0,1000.0)).with_scale(Vec3::splat(20000.0)),
-        material: materials.add(Color::BLACK),
-        visibility: Visibility::Visible,
-        ..default()
-        },
+    commands.spawn((
+        Mesh2d(meshes.add(Rectangle::default())),
+        MeshMaterial2d(materials.add(Color::from(basic::BLACK))),
+        Transform::default().with_translation(Vec3::new(500.0,0.0,1000.0)).with_scale(Vec3::splat(20000.0)),
+        Visibility::Visible,
         BlackRectangle,
         ReleaseResource,
     ));
@@ -217,13 +212,10 @@ pub fn setup_asset(
         _ =>    { Visibility::Hidden },
     };
 
-    commands.spawn((MaterialMesh2dBundle {
-        mesh: meshes.add(Rectangle::default()).into(),
-        transform: Transform::default().with_translation(Vec3::new(value::DEFAULTPOSX,value::DEFAULTPOSY,5.0)).with_scale(Vec3::splat(20.0)),
-        material: materials.add(Color::BLACK),
-        visibility: Visibility::Visible,
-        ..default()
-        },
+    commands.spawn((
+        Mesh2d(meshes.add(Rectangle::default())),
+        MeshMaterial2d(materials.add(Color::from(basic::BLACK))),
+        Transform::default().with_translation(Vec3::new(value::DEFAULTPOSX,value::DEFAULTPOSY,5.0)).with_scale(Vec3::splat(20.0)),
         PlayerBlock,
         ReleaseResource,
         PlayerInfo::default(),
@@ -231,48 +223,45 @@ pub fn setup_asset(
         Adjustment(Vec2::new(0.0, 0.0)),
     )).with_children(|parent| {
         
-        parent.spawn(MaterialMesh2dBundle {
-            mesh: meshes.add(Rectangle::default()).into(),
-            transform: Transform::default().with_translation(Vec3::new(0.0,0.0,1.0)).with_scale(Vec3::splat(0.9)),
-            material: materials.add(Color::ORANGE),
-            ..default()
-        });
-        parent.spawn((Text2dBundle {
-            text: Text::from_section("0", TextStyle {
-                font: font.clone(),
+        parent.spawn((
+            Mesh2d(meshes.add(Rectangle::default())),
+            MeshMaterial2d(materials.add(Color::from(css::ORANGE))),
+            Transform::default().with_translation(Vec3::new(0.0,0.0,1.0)).with_scale(Vec3::splat(0.9)),
+        ));
+        
+        parent.spawn((
+            Text2d::new(String::from("0")),
+            TextFont {
+                font: asset_server.load(assets::DEFAULTFONT),
                 font_size: 100.0,
-                color: Color::BLACK,
-            }),
-            transform: Transform::default().with_translation(Vec3::new(0.0,0.05,10.0)).with_scale(Vec3::splat(0.0080)),
-            visibility: number_visibility,
-            ..default()
+                ..default()
             },
-            PlayerText{count: 0},
+            Transform::default().with_translation(Vec3::new(0.0,0.05,10.0)).with_scale(Vec3::splat(0.008)),
+            number_visibility,
+            TextColor(Color::from(basic::BLACK)),
+            PlayerText{count: 0},    
         ));
 
         if !app.is_clear{
-            parent.spawn(MaterialMesh2dBundle {//左目
-                mesh: meshes.add(Circle::default()).into(),
-                transform: Transform::default().with_translation(Vec3::new(-0.2,0.15,2.0)).with_scale(Vec3::splat(0.15)),
-                material: materials.add(Color::BLACK),
-                ..default()
-            });    
-            parent.spawn(MaterialMesh2dBundle {//右目
-                mesh: meshes.add(Circle::default()).into(),
-                transform: Transform::default().with_translation(Vec3::new(0.2,0.15,2.0)).with_scale(Vec3::splat(0.15)),
-                material: materials.add(Color::BLACK),
-                ..default()
-            });
-            parent.spawn(MaterialMesh2dBundle {//口
-                mesh: meshes.add(Triangle2d::new(
+            parent.spawn((
+                Mesh2d(meshes.add(Circle::default())),
+                MeshMaterial2d(materials.add(Color::from(basic::BLACK))),
+                Transform::default().with_translation(Vec3::new(-0.2,0.15,2.0)).with_scale(Vec3::splat(0.15)),
+            ));    
+            parent.spawn((
+                Mesh2d(meshes.add(Circle::default())),
+                MeshMaterial2d(materials.add(Color::from(basic::BLACK))),
+                Transform::default().with_translation(Vec3::new(0.2,0.15,2.0)).with_scale(Vec3::splat(0.15)),
+            ));
+            parent.spawn((
+                Mesh2d(meshes.add(Triangle2d::new(
                     Vec2::Y * 0.25,
                     Vec2::new(-0.5, -0.5),
                     Vec2::new(0.5, -0.5),
-                )).into(),
-                transform: Transform::default().with_translation(Vec3::new(0.0,-0.15,2.0)).with_scale(Vec3::splat(0.3)),
-                material: materials.add(Color::BLACK),
-                ..default()
-            }); 
+                ))),
+                MeshMaterial2d(materials.add(Color::from(basic::BLACK))),
+                Transform::default().with_translation(Vec3::new(0.0,-0.15,2.0)).with_scale(Vec3::splat(0.3)),
+            )); 
         }
     });
 
@@ -282,12 +271,12 @@ pub fn setup_asset(
 pub fn update_fade_stage_text(
     mut app: ResMut<MyApp>, 
     time: Res<Time>,
-    mut text_query: Query<&mut Text, (With<StageText>, Without<PlayerText>, Without<BGText>, Without<GoalText>)>,
+    mut text_query: Query<(&mut Text, &mut TextColor, &TextFont), (With<StageText>, Without<PlayerText>, Without<BGText>, Without<GoalText>)>,
 ){
     if app.text_stage_alpha <= -1.0{return;}
     for mut t in text_query.iter_mut(){
-        if app.text_stage_alpha == value::DEFAULTTEXTSTAGEALPHA && t.sections[0].style.font_size == 100.0{
-            t.sections[0].value =  match app.stage_count == value::MAXSTAGE {
+        if app.text_stage_alpha == value::DEFAULTTEXTSTAGEALPHA  &&  t.2.font_size == 100.0{
+            t.0.0 =  match app.stage_count == value::MAXSTAGE {
                 true => {"Last Stage".into()},
                 _ => {format!("Stage {}",app.stage_count)},
             };
@@ -296,15 +285,15 @@ pub fn update_fade_stage_text(
             true => 1.0,
             _ => app.text_stage_alpha,
         };
-        t.sections[0].style.color = Color::rgba(1.0,1.0,1.0, alpha);
+        t.1.0 = Color::srgba(1.0,1.0,1.0, alpha);
     }
-    app.text_stage_alpha -= time.delta_seconds();
+    app.text_stage_alpha -= time.delta_secs();
 }
 
 pub fn update_goal_animation(
-    mut text_query: Query<(&mut Text, &mut Transform), With<GoalText>>,
+    mut text_query: Query<(&mut TextColor, &mut Transform), With<GoalText>>,
     player_text_query: Query<&PlayerText>,
-    mut goal_query: Query<&mut Handle<ColorMaterial>, With<GoalBlock>>,
+    mut goal_query: Query<&mut MeshMaterial2d<ColorMaterial>, With<GoalBlock>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     time: Res<Time>
 ) {
@@ -313,7 +302,7 @@ pub fn update_goal_animation(
     let r_wave = (2.0 * std::f32::consts::PI * elapsed  / 1.24 as f32).sin() + 0.8;
     let g_wave = (2.0 * std::f32::consts::PI * elapsed  / 0.77 as f32).sin() + 0.8;
     let b_wave = (2.0 * std::f32::consts::PI * elapsed  / 1.03 as f32).sin() + 0.8;
-    *goal_material =  materials.add(Color::rgb(r_wave, g_wave, b_wave));
+    goal_material.0 =  materials.add(Color::srgb(r_wave, g_wave, b_wave));
     let player_text = player_text_query.single();
     if player_text.count != 0{//プレイヤーテキストが0じゃなかったら文字アニメーションをしない
         for (_u, (mut _text, mut transform))in text_query.iter_mut().enumerate(){
@@ -329,7 +318,7 @@ pub fn update_goal_animation(
         let r_wave = (2.0 * std::f32::consts::PI * (elapsed - os)  / 1.24 as f32).sin() + 0.8;
         let g_wave = (2.0 * std::f32::consts::PI * (elapsed - os)  / 0.77 as f32).sin() + 0.8;
         let b_wave = (2.0 * std::f32::consts::PI * (elapsed - os)  / 1.03 as f32).sin() + 0.8;
-        text.sections[0].style.color = Color::rgb(r_wave, g_wave, b_wave);
+        text.0 = Color::srgb(r_wave, g_wave, b_wave);
     }
     
 }
@@ -340,7 +329,6 @@ pub fn update_debug(
     keyboard_input:  Res<ButtonInput<KeyCode>>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut timer: ResMut<OneSecondTimer>,
-    //mut app_state: ResMut<NextState<AppState>>,
     time: Res<Time>,
     mut exit: EventWriter<bevy::app::AppExit>
 ) {
@@ -359,7 +347,7 @@ pub fn update_debug(
         player_transform.translation.y = app.mouse_pos.y;
     }
     if keyboard_input.just_pressed(KeyCode::Escape){
-        exit.send(bevy::app::AppExit);
+        exit.send(bevy::app::AppExit::Success);
     }
     if !timer.0.tick(time.delta()).just_finished() { return; }
     //println!("FPS: {}", (1.0 / time.delta_seconds()) as i32);//フレームレート表示
@@ -386,12 +374,12 @@ pub fn update_player(
 ) {
     if app.game_state != GameState::Play{return;}
     let (mut player_info, mut player_adjustment, mut player_velocity, mut player_transform) = player_query.single_mut();
-    app.timer += time.delta_seconds();
+    app.timer += time.delta_secs();
     player_info.is_bend = false;
     
     player_adjustment.x = 0.0;
     player_adjustment.y = 0.0;
-    let gravity = -15.0 * time.delta_seconds();
+    let gravity = -15.0 * time.delta_secs();
     player_velocity.y += gravity; 
     let sax = app.mouse_pos.x - app.player_pos.x;
     let say = app.mouse_pos.y - app.player_pos.y;
@@ -405,8 +393,8 @@ pub fn update_player(
     let cnv_rad = angle * 3.1415 / 180.0; 
     player_transform.rotation = Quat::from_rotation_z(cnv_rad);
     
-    if player_transform.scale.y > value::BLOCKSIZE{ player_transform.scale.y -= time.delta_seconds() * 40.0; }
-    if player_transform.scale.x <= value::BLOCKSIZE{ player_transform.scale.x += time.delta_seconds() * 20.0; }
+    if player_transform.scale.y > value::BLOCKSIZE{ player_transform.scale.y -= time.delta_secs() * 40.0; }
+    if player_transform.scale.x <= value::BLOCKSIZE{ player_transform.scale.x += time.delta_secs() * 20.0; }
 
     if !player_info.is_ground && player_transform.scale.x > value::BLOCKSIZE{ player_transform.scale.x = value::BLOCKSIZE; }
     
@@ -419,8 +407,8 @@ pub fn update_player(
     if mouse_button_input.pressed(MouseButton::Left) {
         if player_info.is_ground {
             player_info.is_bend = true;
-            player_transform.scale.y -= 20.0 * time.delta_seconds();
-            player_transform.scale.x += 10.0 * time.delta_seconds();
+            player_transform.scale.y -= 20.0 * time.delta_secs();
+            player_transform.scale.x += 10.0 * time.delta_secs();
             if player_transform.scale.y < 10.0 { player_transform.scale.y = 10.0; }
             if player_transform.scale.x > 25.0 { player_transform.scale.x = 25.0; }
         }
@@ -452,11 +440,11 @@ pub fn update_collisions(
     app: Res<MyApp>, 
     mut player_query: Query<(&mut PlayerInfo, &mut Adjustment, &mut Velocity, &Transform), (With<PlayerBlock>, Without<Enemy>)>,
     mut block_query: Query<(&Children, &mut BGBlock, &Transform), With<BGBlock>>,
-    mut block_text_query: Query<&mut Text, (With<BGText>, Without<PlayerText>)>,
+    mut block_text_query: Query<&mut Text2d, (With<BGText>, Without<PlayerText>)>,
     mut landing_events: EventWriter<LandingEvent>,
     mut side_landing_events: EventWriter<SideLandingEvent>,
     mut get_number_events: EventWriter<GetNumberEvent>,
-    mut text_query: Query<(&mut Text, &mut PlayerText), With<PlayerText>>,
+    mut text_query: Query<(&mut Text2d, &mut PlayerText), With<PlayerText>>,
     time: Res<Time>,
 ) {
     if app.game_state != GameState::Play {return;}
@@ -474,7 +462,7 @@ pub fn update_collisions(
     let offset = 2.0;
     let op_min = player_transform.translation.truncate() - player_size * 0.5 + (offset * 0.5);
     let op_max = player_transform.translation.truncate() + player_size * 0.5 - (offset * 1.5);
-    let mut player_velocity_delta = **player_velocity * (time.delta_seconds() / value::PER60FPS) * 1.0;
+    let mut player_velocity_delta = **player_velocity * (time.delta_secs() / value::PER60FPS) * 1.0;
     let p_min = op_min + player_velocity_delta;
     let p_max = op_max + player_velocity_delta;
 
@@ -483,7 +471,7 @@ pub fn update_collisions(
     if hit_count != 0{
         let (mut text, mut player_text) = text_query.single_mut();
         player_text.count += hit_count;
-        text.sections[0].value = format!("{}", player_text.count);
+        text.0 = format!("{}", player_text.count);
         if hit_count != 0{ get_number_events.send_default(); }
     }
     if is_hit_top && player_velocity.y > 0.0 {player_velocity.y = 0.0; player_info.is_rising = false;}
@@ -512,51 +500,59 @@ pub fn update_play_sound(
     if app.game_state != GameState::Play{return;}
     if !jump_events.is_empty() {
         jump_events.clear();
-        commands.spawn(AudioBundle {
-            source: jump_sound.0.clone(),
-            settings: PlaybackSettings {
-                mode: bevy::audio::PlaybackMode::Despawn,
-                volume: bevy::audio::Volume::new(0.05),
+        commands.spawn((
+            AudioPlayer::new(jump_sound.0.clone()),
+            PlaybackSettings {
+                mode: { audio::PlaybackMode::Despawn },
+                volume: audio::Volume::new(0.05),
                 ..default()
             },
-        });
+        ));
     }
     
     if !landing_events.is_empty() {
         landing_events.clear();
         
-        commands.spawn(AudioBundle {
-            source: landing_sound.0.clone(),
-            settings: PlaybackSettings {
-                mode: bevy::audio::PlaybackMode::Despawn,
-                volume: bevy::audio::Volume::new(0.05),
+        commands.spawn((
+            //AudioBundle {
+            //    source: landing_sound.0.clone(),
+            //    settings: PlaybackSettings {
+            //        mode: bevy::audio::PlaybackMode::Despawn,
+            //        volume: bevy::audio::Volume::new(0.05),
+            //        ..default()
+            //    },
+            //}
+            AudioPlayer::new(landing_sound.0.clone()),
+            PlaybackSettings {
+                mode: { audio::PlaybackMode::Despawn },
+                volume: audio::Volume::new(0.05),
                 ..default()
             },
-        });
+        ));
     } 
 
     if !side_landing_events.is_empty()  {
         side_landing_events.clear();
-        commands.spawn(AudioBundle {
-            source: side_landing_sound.0.clone(),
-            settings: PlaybackSettings {
-                mode: bevy::audio::PlaybackMode::Despawn,
-                volume: bevy::audio::Volume::new(0.05),
+        commands.spawn((
+            AudioPlayer::new(side_landing_sound.0.clone()),
+            PlaybackSettings {
+                mode: { audio::PlaybackMode::Despawn },
+                volume: audio::Volume::new(0.05),
                 ..default()
             },
-        });
+        ));
     }
 
     if !get_number_events.is_empty()  {
         get_number_events.clear();
-        commands.spawn(AudioBundle {
-            source: get_number_sound.0.clone(),
-            settings: PlaybackSettings {
-                mode: bevy::audio::PlaybackMode::Despawn,
-                volume: bevy::audio::Volume::new(0.05),
+        commands.spawn((
+            AudioPlayer::new(get_number_sound.0.clone()),
+            PlaybackSettings {
+                mode: { audio::PlaybackMode::Despawn },
+                volume: audio::Volume::new(0.05),
                 ..default()
             },
-        });
+        ));
     }
 }
 
@@ -590,35 +586,30 @@ pub fn update_game_state(
     mut app: ResMut<MyApp>,
     time: Res<Time>,
     mut app_state: ResMut<NextState<AppState>>,
-    mut black_query: Query<&mut Handle<ColorMaterial>, With<BlackRectangle>>,
+    mut black_query: Query<&mut MeshMaterial2d<ColorMaterial>, With<BlackRectangle>>,
     mut player_query: Query<(&mut PlayerInfo, &mut Transform, &mut Velocity), With<PlayerBlock>>,
-    mut player_text_query: Query<(&mut Text, &mut PlayerText), With<PlayerText>>,
+    mut player_text_query: Query<(&mut Text2d, &mut PlayerText), With<PlayerText>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ){
     let mut black_color = black_query.single_mut();
     if app.game_state == GameState::In{
-        app.game_state_timer += time.delta_seconds();
-        *black_color = materials.add(Color::rgba(0.0,0.0,0.0, 1.0 - (app.game_state_timer*1.0)));
+        app.game_state_timer += time.delta_secs();
+        black_color.0 = materials.add(Color::srgba(0.0,0.0,0.0, 1.0 - (app.game_state_timer*1.0)));
         if app.game_state_timer >= value::FADETIME{
-            *black_color = materials.add(Color::rgba(0.0,0.0,0.0, 0.0));
+            black_color.0 = materials.add(Color::srgba(0.0,0.0,0.0, 0.0));
             app.game_state_timer = 0.0;
             app.game_state = GameState::Play;
         }
     }
     if app.game_state == GameState::Out{
-        app.game_state_timer += time.delta_seconds();
-        *black_color = materials.add(Color::rgba(0.0,0.0,0.0, app.game_state_timer*1.0));
+        app.game_state_timer += time.delta_secs();
+        black_color.0 = materials.add(Color::srgba(0.0,0.0,0.0, app.game_state_timer*1.0));
         if app.game_state_timer >= value::FADETIME{
-            *black_color = materials.add(Color::rgba(0.0,0.0,0.0, 1.0));
+            black_color.0 = materials.add(Color::srgba(0.0,0.0,0.0, 1.0));
             app.game_state_timer = 0.0;
             app.game_state = GameState::In;
             app.is_reset_game = true;
             if app.stage_count > value::MAXSTAGE{app_state.set(AppState::Ending);}
-            //let (mut player_transform, mut player_velocity) = player_query.single_mut();
-            //player_transform.translation.x = value::DEFAULTCAMERAPOSX;
-            //player_transform.translation.y = value::DEFAULTCAMERAPOSY;
-            //player_velocity.x = 0.0;
-            //player_velocity.y = 0.0;
         }
     }
     if app.is_reset_game{
@@ -629,7 +620,7 @@ pub fn update_game_state(
         player_info.is_rising = false;
         let (mut text, mut player_text) = player_text_query.single_mut();
         player_text.count = 0;
-        text.sections[0].value = format!("{}", player_text.count);
+        text.0 = format!("{}", player_text.count);
     }
 }
 
@@ -668,30 +659,30 @@ pub fn update_apply_velocity_player(
     app.player_pos.y = player_transform.translation.y;
 
     if app.game_state != GameState::Play{return;}
-    let delta_player_velocity = **player_velocity * (time.delta_seconds() / value::PER60FPS);
+    let delta_player_velocity = **player_velocity * (time.delta_secs() / value::PER60FPS);
     player_transform.translation.x += player_adjustment.x;
     player_transform.translation.y += player_adjustment.y;
     player_transform.translation.x += delta_player_velocity.x;
     player_transform.translation.y += delta_player_velocity.y;
-    player_transform.translation.x += app.vel.x * time.delta_seconds() * 10.0;
-    player_transform.translation.y += app.vel.y * time.delta_seconds() * 10.0;
+    player_transform.translation.x += app.vel.x * time.delta_secs() * 10.0;
+    player_transform.translation.y += app.vel.y * time.delta_secs() * 10.0;
 
     app.player_pos.x = player_transform.translation.x;
     app.player_pos.y = player_transform.translation.y;
 
     if player_adjustment.y > 0.0 { player_velocity.y = 0.0; }
 
-    app.vel.x = app.vel.x * (1.0 - time.delta_seconds() * 20.0);
-    app.vel.y = app.vel.y * (1.0 - time.delta_seconds() * 20.0);
+    app.vel.x = app.vel.x * (1.0 - time.delta_secs() * 20.0);
+    app.vel.y = app.vel.y * (1.0 - time.delta_secs() * 20.0);
 
     if app.old_velocity_y >= 0.0 && player_velocity.y < 0.0 { player_info.is_rising = false; }
     app.old_velocity_y = player_velocity.y;
     if player_info.is_ground{ 
-        player_velocity.x = player_velocity.x * (1.0 - time.delta_seconds() * 20.0); 
+        player_velocity.x = player_velocity.x * (1.0 - time.delta_secs() * 20.0); 
         player_info.air_delta = 0.0;
     }else { 
-        player_velocity.x = player_velocity.x * (1.0 - time.delta_seconds() *  1.0); 
-        player_info.air_delta += time.delta_seconds();
+        player_velocity.x = player_velocity.x * (1.0 - time.delta_secs() *  1.0); 
+        player_info.air_delta += time.delta_secs();
     }
     
     if player_info.is_ground {player_info.is_rising = false;}

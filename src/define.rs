@@ -26,8 +26,9 @@ pub mod value{
     pub const DEFAULTCAMERAPOSY: f32 = 0.0;
     pub const VOLUME: f32 = 0.05;
     //pub const VOLUME: f32 = 0.00;
-    pub const ISDEBUG: bool = true;
+    pub const ISDEBUG: bool = false;
     pub const PER60FPS: f32 = 0.016;
     pub const FADETIME: f32 = 1.0;
     pub const RESETRANGEY: f32 = -600.0;
+    pub const DARKBLOCKCOLOR: f32 = 0.25;
 }
