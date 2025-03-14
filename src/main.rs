@@ -33,7 +33,10 @@ fn set_exec(){
         }).set(bevy::log::LogPlugin{
             level: bevy::log::Level::WARN,
             ..default()
-        }))
+        }).set(AssetPlugin {
+	        meta_check: bevy::asset::AssetMetaCheck::Never,
+	        ..default()
+	    }))
         .add_plugins(state::StatePlugin)
         
         .run();
