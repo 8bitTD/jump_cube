@@ -21,6 +21,7 @@ fn set_exec(){
                 title: define::common::TOOLNAME.into(),
                 position: WindowPosition::new(IVec2::new(value::DEFAULTWINDOWPOSX, 0)),
                 resolution: (1100.0, 1000.0).into(),
+                //mode: WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
                 transparent: true,
                 decorations: true,
                 present_mode: PresentMode::AutoNoVsync,

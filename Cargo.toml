@@ -5,4 +5,4 @@ edition = "2024"
 
 [dependencies]
 bevy = {version = "0.15.3", features = ["mp3", "wav"]}
-rand = "0.9.0"
+rand = "0.8.5"
