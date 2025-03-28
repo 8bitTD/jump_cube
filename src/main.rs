@@ -19,13 +19,14 @@ fn set_exec(){
         .add_plugins(DefaultPlugins.set(WindowPlugin{
             primary_window: Some(Window {
                 title: define::common::TOOLNAME.into(),
-                position: WindowPosition::new(IVec2::new(value::DEFAULTWINDOWPOSX, 0)),
+                //position: WindowPosition::new(IVec2::new(value::DEFAULTWINDOWPOSX, 0)),
                 resolution: (1100.0, 1000.0).into(),
                 //mode: WindowMode::BorderlessFullscreen(MonitorSelection::Primary),
                 transparent: true,
                 decorations: true,
                 present_mode: PresentMode::AutoNoVsync,
                 prevent_default_event_handling: false,
+                fit_canvas_to_parent: true,
                 ..default()
             }),
             exit_condition: bevy::window::ExitCondition::OnAllClosed,
